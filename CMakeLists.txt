@@ -1,16 +1,11 @@
 cmake_minimum_required (VERSION 3.12)
 
-project("pace-python" VERSION "0.1.0")
+project("libpymcr" VERSION "0.1.0")
 
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 set(CMAKE_MACOSX_RPATH TRUE)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CXX_STANDARD_REQUIRED 11)
-
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 set(MINIMUM_PYBIND11_VERSION 2.5.0)
 set(FETCH_PYBIND11_REPO https://github.com/pybind/pybind11)
@@ -24,12 +19,6 @@ if(WIN32)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -d2:-FH4-")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -d2:-FH4-")
 endif(WIN32)
-
-if(WIN32)
-    find_package(POWERSHELL REQUIRED)
-else()
-    find_package(BASH REQUIRED)
-endif()
 
 if (PYTHON_EXECUTABLE)
   # Ensure the provided Python interpreter is used
@@ -83,7 +72,4 @@ if(NOT ${Matlab_VERSION} VERSION_LESS "9.4")
     set(Matlab_HAS_CPP_API 1)
 endif()
 
-include(PACE)
-
 add_subdirectory(src)
-add_subdirectory(pace_neutrons)

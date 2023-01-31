@@ -222,7 +222,7 @@ namespace libpymcr {
 } // namespace libpymcr
 
 
-PYBIND11_MODULE(libpymcr, m) {
+PYBIND11_MODULE(_libpymcr, m) {
     py::class_<libpymcr::matlab_env>(m, "matlab")
         .def(py::init<const std::u16string, std::string>(),
              py::arg("ctfname")=u"libpace.ctf", py::arg("matlabroot")="/usr/local/MATLAB/R2020a/")

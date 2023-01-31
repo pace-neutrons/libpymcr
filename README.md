@@ -1,71 +1,41 @@
-# PACE-neutrons
+# libpymcr
 
-PACE is a suite of programs for data analysis of inelastic neutron scattering spectra, written in both Python and Matlab.
+*libpymcr* is a Python module for loading a compiled Matlab `ctf` archive and running functions within it in Python.
 
-The packages included in PACE are:
+Whilst there is an [official Mathworks binding for Python](https://uk.mathworks.com/help/compiler_sdk/python_packages.html),
+*libpymcr* provides a few benefits over the official package:
 
-* [Horace](https://github.com/pace-neutrons/Horace/) - 
-  A Matlab program for the visualisation and analysis of large datasets from time-of-flight neutron inelastic scattering spectrometers.
-* [Euphonic](https://github.com/pace-neutrons/euphonic) - 
-  A Python program for simulating phonon spectra from DFT output (CASTEP or Phonopy).
-* [Brille](https://github.com/brille/brille) - A C++/Python program for Brillouin zone interpolation.
-* [SpinW](https://github.com/spinw/spinw) - A Matlab program for simulating spin wave (magnon) spectra.
+* It is compatible with versions of Python not supported by Matlab (e.g. 3.10, 3.11, 3.12). Moreover, the supported Python
+  versions are not locked to the Matlab versions, unlike with the official packages.
+* When converting data between Matlab and Python it avoids data copies where ever possible by wrapping the underlying arrays
+  in the target type (`numpy` or Matlab `mxArray`). In the official bindings, a data copy is required when converting data
+  from Python to Matlab (inputs to functions).
+* It provides a simpler syntax, and if you include the provided `call.m` and `call_python.mex` files in your compiled
+  package, you will also be able to access Matlab objects transparently in Python, and pass Python callables to Matlab
+  to evaluate (e.g. in a fitting routine).
+  
+## Getting started
 
-The Python programs have separate PyPI packages 
-([Euphonic](https://pypi.org/project/euphonic/) and [Brille](https://pypi.org/project/brille/)),
-whilst this package provides a Python module for the Matlab codes using a compiled Matlab library, which does not require a Matlab license.
-
-
-## Getting Started
-
-You can install and run the package using:
+You can install the package using:
 
 ```
-pip install pace_neutrons
-pace_neutrons
+pip install libpymcr
 ```
 
-When you first run `pace_neutrons` the module will check to see if you have the
-[Matlab Compiler Runtime (MCR)](https://www.mathworks.com/products/compiler/matlab-runtime.html) installed.
-If you do not have the version required by PACE (currently R2020a)
-then the program will prompt you to accept the Matlab license and
-it will download and install the required MCR components
-(approximately 500MB download, 2GB installed).
-Note that the installation is silent and may take some time to download and install (~15-30min).
-You can also manually install the MCR at the above link,
-but note that the distributions linked there is for the full Matlab installation including all toolboxes,
-which is approximately 2.5GB to download and 15GB installed.
+You must create a compiled Matlab archive (`ctf` file) of your program using the
+[Matlab Compiler SDK toolbox](https://uk.mathworks.com/help/compiler_sdk/index.html),
+using the [mcc](https://uk.mathworks.com/help/compiler_sdk/index.html) command:
 
-After installing the MCR, the program will start a Python command line.
-To use PACE you must first import and initialise the `Matlab` module as follows:
+```
+mcc -W CTF:your_program_name -U mfile1 mfile2 mfile3
+```
+
+Then in Python, you can load this and call the Matlab functions with:
 
 ```python
-from pace_neutrons import Matlab
-m = Matlab()
+import libpymcr
+m = libpymcr.Matlab('your_program_name.ctf')
+m.mfile1()
 ```
 
-Thereafter, you can use the Matlab-based commands of Horace or SpinW by prefixing them with `m.`, e.g.:
-
-```python
-proj = m.projaxes([-0.5, 1, 0], [0, 0, 1], 'type', 'rrr')
-w1 = m.cut_sqw('ei30_10K.sqw', proj, [0.1, 0.02, 0.5], [1.5, 2.5], [0.4, 0.5], [3, 0.5, 20])
-hf = m.plot(w1)
-```
-
-You can get further help from the [Horace](https://horace.isis.rl.ac.uk/) or [SpinW](https://spinw.org/) webpages.
-
-Finally if you have Jupyter or Spyder installed you can start a PACE session in either with:
-
-```
-pace_neutrons --jupyter
-```
-
-or 
-
-```
-pace_neutrons --spyder
-```
-
-## Developer notes
-
-Developer documentation is [here](docs/developers.md)
+The functions, `mfile1`, `mfile2` etc. are exposed to Python can can be called as methods of the `Matlab()` object.

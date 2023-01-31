@@ -1,13 +1,11 @@
 import os
 import re
 import sys
-import subprocess
 import pkgutil
-import shutil
 import versioneer
 from sysconfig import get_platform
-from subprocess import CalledProcessError, check_output, check_call, run, PIPE
 from distutils.version import LooseVersion
+from subprocess import CalledProcessError, check_output, check_call, run, PIPE
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
 
@@ -35,37 +33,10 @@ def is_mingw():
     return platform.startswith("mingw")
 
 
-def update_euphonic_sqw_models():
-    # Calls git to update euphonic_sqw_models submodule
-    try:
-        cmk_out = run([get_cmake(), '.'], cwd=os.path.join('cmake', 'print_git'),
-                      stdout=PIPE, stderr=PIPE, check=True)
-    except OSError:
-        raise RuntimeError("CMake must be installed to build this extension")
-    if "Git Not Found" in cmk_out.stderr.decode():
-        raise RuntimeError("Git must be installed to build this extension")
-    git_bin = cmk_out.stderr.decode().split('Git Found: ')[1].split('\n')[0]
-    git_out = run([git_bin, 'submodule', 'update', '--init', 'euphonic_sqw_models_module'])
-    git_out.check_returncode()
-
-
-def copy_euphonic_sqw_models():
-    # Copies the euphonic_sqw_models module folder to the top level folder
-    #
-    # In order for setuptools to pick up euphonic_sqw_models, the Python
-    # module folder must be exist in the top level folder when it runs
-    if not os.path.isdir(os.path.join('euphonic_sqw_models_module', 'euphonic_sqw_models')):
-        update_euphonic_sqw_models()
-    shutil.copytree(os.path.join('euphonic_sqw_models_module', 'euphonic_sqw_models'),
-                    'euphonic_sqw_models')
-
-
 class CMakeExtension(Extension):
     def __init__(self, name, sourcedir=''):
         Extension.__init__(self, name, sources=[])
         self.sourcedir = os.path.abspath(sourcedir)
-        if not os.path.isfile(os.path.join('euphonic_sqw_models', '__init__.py')):
-            copy_euphonic_sqw_models()
 
 
 class CMakeBuild(build_ext):
@@ -79,8 +50,8 @@ class CMakeBuild(build_ext):
 
         rex = r'version\s*([\d.]+)'
         cmake_version = LooseVersion(re.search(rex, out.decode()).group(1))
-        if cmake_version < '3.13.0':
-            raise RuntimeError("CMake >= 3.13.0 is required")
+        if cmake_version < '3.12.0':
+            raise RuntimeError("CMake >= 3.12.0 is required")
 
         for ext in self.extensions:
             self.build_extension(ext)
@@ -132,26 +103,6 @@ class CMakeBuild(build_ext):
         check_call(
             [get_cmake(), '--build', '.'] + build_args,
             cwd=self.build_temp)
-        # shutil.copytree expects destination to not exist
-        outpath = os.path.join(self.build_lib, 'pace_neutrons', 'pace')
-        if os.path.isdir(outpath): 
-            shutil.rmtree(outpath)
-        shutil.copytree(os.path.join(self.build_temp, 'bin', 'pace_neutrons', 'pace'), outpath)
-        for ff in ['requiredMCRProducts.txt', 'setup.py', 'readme.txt']:
-            shutil.copyfile(os.path.join(self.build_temp, 'bin', 'pace_neutrons', ff),
-                            os.path.join(self.build_lib, 'pace_neutrons', ff))
-        # Write the Matlab version
-        matlab_version = None
-        with open(os.path.join(self.build_temp, 'bin', 'pace_neutrons',
-                               'pace', '__init__.py'), 'r') as pace_init:
-            for line in pace_init:
-                if 'RUNTIME_VERSION_W_DOTS' in line:
-                    matlab_version = line.split('=')[1].strip()
-                    break
-        if matlab_version:
-            with open(os.path.join(self.build_lib, 'pace_neutrons_cli',
-                                   '_matlab_version.py'), 'w') as m_ver:
-                m_ver.write(f'RUNTIME_VERSION_W_DOTS = {matlab_version}\n')
 
 
 with open("README.md", "r") as fh:
@@ -163,35 +114,28 @@ cmdclass['build_ext'] = CMakeBuild
 
 
 KEYWORDARGS = dict(
-    name='pace_neutrons',
+    name='libpymcr',
     version=versioneer.get_version(),
     author='Duc Le',
     author_email='duc.le@stfc.ac.uk',
-    description='A Python wrapper around Matlab programs for inelastic neutron scattering data analysis',
+    description='A module to allow Python to call functions from a compiled Matlab archive',
     long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
-    ext_modules=[CMakeExtension('pace_neutrons')],
-    packages=['pace_neutrons', 'pace_neutrons_cli', 'euphonic_sqw_models'],
-    package_data={'pace_neutrons':['MCR_license.txt', 'requiredMCRProducts.txt', 'setup.py',
-                                   'readme.txt', 'pace/__init__.py', 'pace/pace.ctf']},
-    install_requires = ['six>=1.12.0', 'numpy>=1.7.1', 'appdirs>=1.4.4', 'ipython>=3.2.1', 'requests',
-                        'matplotlib>=2.0.0', 'euphonic[phonopy_reader]>=0.6.2', 'brille>=0.5.4'],
-    extras_require = {'interactive':['matplotlib>=2.2.0',],},
+    ext_modules=[CMakeExtension('_libpymcr')],
+    packages=['libpymcr'],
+    install_requires = ['numpy>=1.7.1'],
     cmdclass=cmdclass,
-    entry_points={'console_scripts': [
-        'pace_neutrons = pace_neutrons_cli:main',
-        'worker_v2 = pace_neutrons_cli.worker:main']},
-    url="https://github.com/pace-neutrons/pace-python",
+    url="https://github.com/pace-neutrons/libpymcr",
     zip_safe=False,
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
-        "Intended Audience :: Science/Research",
+        "Intended Audience :: Developers",
         "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
         "Operating System :: Microsoft :: Windows :: Windows 10",
         "Operating System :: POSIX :: Linux",
         "Programming Language :: C++",
         "Programming Language :: Python :: 3",
-        "Topic :: Scientific/Engineering :: Physics",
+        "Topic :: Software Development",
     ]
 )
 

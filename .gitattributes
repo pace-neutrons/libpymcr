@@ -1,1 +1,2 @@
 pace_neutrons/_version.py export-subst
+libpymcr/_version.py export-subst
