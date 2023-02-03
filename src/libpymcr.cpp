@@ -122,8 +122,8 @@ namespace libpymcr {
             std::uintptr_t addr = reinterpret_cast<std::uintptr_t>(input);
             std::uintptr_t conv = reinterpret_cast<std::uintptr_t>(&_converter);
             rv = factory.createStructArray({1, 1}, std::vector<std::string>({"func_ptr", "converter"}));
-            rv[0]["func_ptr"] = factory.createScalar<uint64_t>(addr);
-            rv[0]["converter"] = factory.createScalar<uint64_t>(conv);
+            rv[0][std::string("func_ptr")] = factory.createScalar<uint64_t>(addr);
+            rv[0][std::string("converter")] = factory.createScalar<uint64_t>(conv);
         } else {
             rv = _converter.to_matlab(input);
         }

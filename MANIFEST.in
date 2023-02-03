@@ -1,2 +1,2 @@
 include versioneer.py
-include pace_neutrons/_version.py
+include libpymcr/_version.py

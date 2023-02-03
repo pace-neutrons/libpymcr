@@ -1,0 +1,74 @@
+name: libpymcr
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+  workflow_dispatch:
+
+concurrency :
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/head/main' && github.run_number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash -l {0}
+
+jobs:
+  build_and_test:
+    name: Build and test, ${{ matrix.variant.os }}, py${{ matrix.pyvariant.version }}
+    runs-on: ${{ matrix.variant.os }}
+    # Matlab only provides binaries for 64-bit systems - so force x86_64 builds
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - {os: ubuntu-22.04, matlab-version: R2020a, tag: manylinux_x86_64, mlprefix: /host/}
+          - {os: macos-12, matlab-version: R2020a, tag: macosx_x86_64, mlprefix: ''}
+          - {os: windows-2022, matlab-version: R2021a, tag: win_amd64, mlprefix: ''}
+        pyvariant: 
+          - {version: '3.8', tag: cp38}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Set up MATLAB
+        uses: matlab-actions/setup-matlab@v1.2.4
+        with:
+          release: ${{ matrix.variant.matlab-version }}
+      - name: Get Matlab executable
+        run: |
+          echo "matlabExecutable=`which matlab`" >> $GITHUB_ENV
+          echo "hostDirectory=`pwd`" >> $GITHUB_ENV
+      - name: Print windows
+        if: ${{ matrix.variant.os == 'windows-2022' }}
+        run: |
+          ls /c/*/MATLAB/R2021a/extern/include
+          ls /c/*/MATLAB/R2021a/extern/lib/win64
+          ls /c/*/MATLAB/R2021a/extern/bin/win64
+      - name: Print mac
+        if: ${{ matrix.variant.os == 'macos-12' }}
+        run: |
+          ls /Applications/MATLAB_R2020a/MATLAB_R2020a.app/extern/include
+          ls /Applications/MATLAB_R2020a/MATLAB_R2020a.app/extern/lib/maci64
+          ls /Applications/MATLAB_R2020a/MATLAB_R2020a.app/extern/bin/maci64
+          file /Applications/MATLAB_R2020a/MATLAB_R2020a.app/extern/bin/maci64/libMatlabEngine.dylib
+      - name: Build wheel
+        uses: pypa/cibuildwheel@v2.12.0
+        env:
+          CIBW_BUILD: ${{ matrix.pyvariant.tag }}-${{ matrix.variant.tag }}
+          CIBW_ENVIRONMENT: >-
+            matlabExecutable="${{ matrix.variant.mlprefix }}${{ env.matlabExecutable }}"
+            hostDirectory="${{ matrix.variant.mlprefix }}${{ env.hostDirectory }}"
+          CIBW_BUILD_VERBOSITY: 1
+          MACOSX_DEPLOYMENT_TARGET: "10.15"
+      - name: Setup tmate
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.variant.os }}_artifacts.zip
+          path: artifacts.zip

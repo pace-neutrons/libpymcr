@@ -14,6 +14,9 @@ _global_matlab_ref = None
 
 class _MatlabInstance(object):
     def __init__(self, ctffile, matlab_dir=None):
+        ctffile = os.path.abspath(ctffile)
+        if not os.path.exists(ctffile):
+            raise RuntimeError('CTF file {} does not exist'.format(ctffile))
         if matlab_dir is None:
             matlab_dir = checkPath(get_version_from_ctf(ctffile))
         self.ctf = ctffile
@@ -54,7 +57,7 @@ class NamespaceWrapper(object):
 
 
 class Matlab(object):
-    def __init__(self, mlPath=None):
+    def __init__(self, ctffile, mlPath=None):
         """
         Create an interface to a matlab compiled python library and treat the objects in a python/matlab way instead of
         the ugly way it is done by default.
@@ -65,7 +68,7 @@ class Matlab(object):
 
         global _global_matlab_ref
         if _global_matlab_ref is None:
-            _global_matlab_ref = _MatlabInstance(mlPath)
+            _global_matlab_ref = _MatlabInstance(ctffile, mlPath)
         self._interface = _global_matlab_ref.interface
 
     def __getattr__(self, name):
@@ -88,7 +91,7 @@ class Matlab(object):
             id0 = lis.index(tag_start) + 1
             return lis[id0:lis.index(tag_end, id0)]
 
-        with zipfile.ZipFile(ctffile, 'r') as ctf:
+        with zipfile.ZipFile(_global_matlab_ref.ctf, 'r') as ctf:
             manifest = ctf.read('.META/manifest.xml').decode('ascii')
             tags = manifest.split('><')
             funcs = tags[(tags.index('public-functions') + 1):tags.index('/public-functions')]

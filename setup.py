@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import pkgutil
+import pathlib
 import versioneer
 from sysconfig import get_platform
 from distutils.version import LooseVersion
@@ -33,6 +34,24 @@ def is_mingw():
     return platform.startswith("mingw")
 
 
+def is_osx():
+    platform = get_platform()
+    return platform.startswith("macosx")
+
+
+def create_artifact(outfile):
+    import glob
+    import zipfile
+    # Finds all wheels and mex files and zips them into a single file
+    wheels = glob.glob('**/*whl', recursive=True)
+    mexs = glob.glob('**/*.mex*', recursive=True)
+    with zipfile.ZipFile(outfile, mode='w', compression=zipfile.ZIP_DEFLATED) as z:
+        for whl in wheels:
+            z.write(whl, arcname=os.path.basename(whl))
+        for mex in mexs:
+            z.write(mex, arcname=os.path.basename(mex))
+
+
 class CMakeExtension(Extension):
     def __init__(self, name, sourcedir=''):
         Extension.__init__(self, name, sources=[])
@@ -50,8 +69,8 @@ class CMakeBuild(build_ext):
 
         rex = r'version\s*([\d.]+)'
         cmake_version = LooseVersion(re.search(rex, out.decode()).group(1))
-        if cmake_version < '3.12.0':
-            raise RuntimeError("CMake >= 3.12.0 is required")
+        if cmake_version < '3.13.0':
+            raise RuntimeError("CMake >= 3.13.0 is required")
 
         for ext in self.extensions:
             self.build_extension(ext)
@@ -65,7 +84,6 @@ class CMakeBuild(build_ext):
                 cmake_args += ['-A', 'x64']
             else:
                 cmake_args += ['-A', 'Win32']
-				
         if is_mingw():
             cmake_args += ['-G','Unix Makefiles'] # Must be two entries to work
 
@@ -93,8 +111,18 @@ class CMakeBuild(build_ext):
         cxxflags = '{} -DVERSION_INFO=\\"{}\\"'.format(
             env.get('CXXFLAGS', ''), self.distribution.get_version())
         env['CXXFLAGS'] = cxxflags
+        print(env)
         if 'MATLAB_DIR' in env:
             cmake_args += ['-DMatlab_ROOT_DIR=' + env['MATLAB_DIR']]
+        elif 'matlabExecutable' in env:
+            matlab_path = str(pathlib.Path(env['matlabExecutable']).resolve().parents[1])
+            if env['matlabExecutable'].startswith('/host') and not matlab_path.startswith('/host'):
+                matlab_path = '/host/' + matlab_path
+            print(matlab_path)
+            cmake_args += ['-DMatlab_ROOT_DIR=' + matlab_path]
+            if is_osx():
+                # Matlab doesn't run well on _some_ Mac runners: force version else it times out
+                cmake_args += ['-DMatlab_VERSION_STRING_INTERNAL:INTERNAL="9.8"']
         if not os.path.exists(self.build_temp):
             os.makedirs(self.build_temp)
         check_call(
@@ -121,7 +149,7 @@ KEYWORDARGS = dict(
     description='A module to allow Python to call functions from a compiled Matlab archive',
     long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
-    ext_modules=[CMakeExtension('_libpymcr')],
+    ext_modules=[CMakeExtension('libpymcr._libpymcr')],
     packages=['libpymcr'],
     install_requires = ['numpy>=1.7.1'],
     cmdclass=cmdclass,
@@ -143,3 +171,11 @@ try:
     setup(**KEYWORDARGS)
 except CalledProcessError:
     print("Failed to build the extension!")
+else:
+    if 'matlabExecutable' in os.environ:
+        # Running in CI, create a artifact zip
+        create_artifact('artifacts.zip')
+        if os.environ['matlabExecutable'].startswith('/host'):
+            # We're in a container, copy it out
+            import shutil
+            shutil.copy('artifacts.zip', os.environ['hostDirectory'])

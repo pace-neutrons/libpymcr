@@ -15,6 +15,8 @@ matlab_add_mex(
 target_include_directories(call_python PUBLIC ${PYTHON_INCLUDE_DIRS})
 target_include_directories(call_python PUBLIC "${pybind11_SOURCE_DIR}/include")
 target_link_libraries(call_python type_converter)
-if(WIN32)
+if(NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     target_link_libraries(call_python ${PYTHON_LIBRARIES})
 endif()
+# This is set automatically by setup.py but we don't want call_python.mex in the wheel
+set_property(TARGET call_python PROPERTY LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})

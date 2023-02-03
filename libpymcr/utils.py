@@ -13,7 +13,7 @@ def get_version_from_ctf(ctffile):
             if 'mcr-major-version' in tag:
                 ver = dict([v.split("=") for v in tag.split() if 'mcr' in v])
                 ver = [ver[v].replace('"', '') for v in ['mcr-major-version', 'mcr-minor-version']]
-                return str(float(ver[0]) + float(ver[1]) / 10.)
+                return "{}.{}".format(*ver)
 
 
 def get_matlab_from_registry(version=None):

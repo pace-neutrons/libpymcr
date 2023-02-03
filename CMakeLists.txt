@@ -1,4 +1,5 @@
-cmake_minimum_required (VERSION 3.12)
+cmake_minimum_required (VERSION 3.13)
+# Need 3.13 to find Matlab engine and data array libraries
 
 project("libpymcr" VERSION "0.1.0")
 
@@ -9,16 +10,6 @@ set(CXX_STANDARD_REQUIRED 11)
 
 set(MINIMUM_PYBIND11_VERSION 2.5.0)
 set(FETCH_PYBIND11_REPO https://github.com/pybind/pybind11)
-
-# The latest VS needs an extra library VCRUNTIME140_1.dll which is not in 
-# the anaconda redistributable module (yet) - so disable it.
-# https://developercommunity.visualstudio.com/content/problem/852548/vcruntime140-1dll-is-missing.html
-if(WIN32)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -d2FH4-")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -d2FH4-")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -d2:-FH4-")
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -d2:-FH4-")
-endif(WIN32)
 
 if (PYTHON_EXECUTABLE)
   # Ensure the provided Python interpreter is used
@@ -52,24 +43,22 @@ endif()
 
 # You can set a specific Matlab version folder here
 #set(Matlab_ROOT_DIR "c:/Program Files/MATLAB/R2020a")
-find_package(Matlab REQUIRED COMPONENTS MAIN_PROGRAM MEX_COMPILER MCC_COMPILER)
-get_filename_component(Matlab_LIBRARY_DIR "${Matlab_MEX_LIBRARY}" DIRECTORY)
-get_filename_component(Matlab_BIN_DIR "${Matlab_MAIN_PROGRAM}" DIRECTORY)
+set(MATLAB_FIND_DEBUG 1)
+find_package(Matlab)
 
-# Get the Matlab release from the VersionInfo.xml file
-file(READ "${Matlab_ROOT_DIR}/VersionInfo.xml" _release_info)
-string(REGEX REPLACE
-    ".*<release>(R[0-9]+[ab])</release>.*"
-    "\\1"
-    Matlab_RELEASE
-    "${_release_info}"
-)
-matlab_get_version_from_release_name(${Matlab_RELEASE} Matlab_VERSION)
-
-# MATLAB 9.4 (R2018a) and newer have a new C++ API
-# This API pulls additional required libraries.
-if(NOT ${Matlab_VERSION} VERSION_LESS "9.4")
+# On MacOS github runners it can sometimes fail to find the right libraries
+if (NOT Matlab_HAS_CPP_API)
+  if (NOT Matlab_ENGINE_LIBRARY)
+    file(GLOB_RECURSE Matlab_ENGINE_LIBRARY "${Matlab_ROOT_DIR}/extern/bin/*/libMatlabEngine*")
+  endif()
+  if (NOT Matlab_DATAARRAY_LIBRARY)
+    file(GLOB_RECURSE Matlab_DATAARRAY_LIBRARY "${Matlab_ROOT_DIR}/extern/bin/*/libMatlabDataArray*")
+  endif()
+  if (Matlab_ENGINE_LIBRARY AND Matlab_DATAARRAY_LIBRARY)
     set(Matlab_HAS_CPP_API 1)
+    list(APPEND Matlab_LIBRARIES ${Matlab_ENGINE_LIBRARY})
+    list(APPEND Matlab_LIBRARIES ${Matlab_DATAARRAY_LIBRARY})
+  endif()
 endif()
 
 add_subdirectory(src)
