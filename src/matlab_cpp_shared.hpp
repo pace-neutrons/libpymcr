@@ -6,6 +6,14 @@
 // Uncomment to use the official interface
 //#include <MatlabCppSharedLib.hpp>
 
+#ifdef _MSC_VER
+#define DLL_SYM __declspec(dllexport)
+#elif __GNUC__ >= 4
+#define DLL_SYM __attribute__((visibility("default")))
+#else
+#define DLL_SYM
+#endif
+
 #ifndef MATLABCPPSHAREDLIB_HPP
 #define MATLABCPPSHAREDLIB_HPP
 // Ensures we don't conflict with the official interface
@@ -27,14 +35,6 @@
 #include <future>
 #include <MatlabDataArray/MDArray.hpp>
 #include <MatlabDataArray/detail/HelperFunctions.hpp>
-
-#ifdef _MSC_VER
-#define DLL_SYM __declspec(dllimport)
-#elif __GNUC__ >= 4
-#define DLL_SYM __attribute__((visibility("default")))
-#else
-#define DLL_SYM
-#endif
 
 extern "C" DLL_SYM void runtime_create_session(char16_t** options, size_t size);
 extern "C" DLL_SYM void runtime_terminate_session();

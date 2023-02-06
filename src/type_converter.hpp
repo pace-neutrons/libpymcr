@@ -1,6 +1,9 @@
 #ifndef TYPECONVERTER_H
 #define TYPECONVERTER_H
 
+#include <cstddef>
+using ssize_t = std::ptrdiff_t;
+
 #include <MatlabDataArray/TypedArray.hpp>
 #include <MatlabDataArray/ArrayFactory.hpp>
 #include <pybind11/pybind11.h>

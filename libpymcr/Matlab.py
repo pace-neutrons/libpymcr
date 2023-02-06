@@ -2,9 +2,8 @@ import os, sys
 import platform
 import shutil
 import zipfile
-from .funcinspect import lhs_info
 from .MatlabProxyObject import wrap, unwrap
-from .utils import get_version_from_ctf, checkPath
+from .utils import get_version_from_ctf, checkPath, get_nlhs
 from . import _libpymcr
 
 # Store the Matlab engine as a module global wrapped inside a class
@@ -40,7 +39,7 @@ class NamespaceWrapper(object):
 
     def __call__(self, *args, **kwargs):
         nargout = kwargs.pop('nargout') if 'nargout' in kwargs.keys() else None
-        nreturn = lhs_info(output_type='nreturns')
+        nreturn = get_nlhs()
         if nargout is None:
             mnargout, undetermined = self._interface.call('getArgOut', self._name, nargout=2)
             if not undetermined:

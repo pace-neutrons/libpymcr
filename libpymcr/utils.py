@@ -3,7 +3,17 @@ import sys
 import glob
 import platform
 import zipfile
+import traceback
 from pathlib import Path
+
+
+def get_nlhs():
+    caller = traceback.extract_stack()[-3].line
+    retvals = (0, '')
+    if '=' in caller:
+        return len(caller.split('=')[0].split(','))
+    else:
+        return 1
 
 
 def get_version_from_ctf(ctffile):

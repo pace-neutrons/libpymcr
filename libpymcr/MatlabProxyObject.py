@@ -1,5 +1,5 @@
 from io import StringIO
-from .funcinspect import lhs_info
+from .utils import get_nlhs
 import re
 
 def wrap(inputs, interface):
@@ -38,7 +38,7 @@ class matlab_method:
         self.method = method
 
     def __call__(self, *args, **kwargs):
-        nreturn = lhs_info(output_type='nreturns')
+        nreturn = get_nlhs()
         nargout = int(kwargs.pop('nargout') if 'nargout' in kwargs.keys() else nreturn)
         nargout = max(min(nargout, nreturn), 1)
         ifc = self.proxy.interface

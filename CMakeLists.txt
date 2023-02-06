@@ -8,7 +8,7 @@ set(CMAKE_MACOSX_RPATH TRUE)
 set(CMAKE_CXX_STANDARD 11)
 set(CXX_STANDARD_REQUIRED 11)
 
-set(MINIMUM_PYBIND11_VERSION 2.5.0)
+set(MINIMUM_PYBIND11_VERSION 2.10.0)
 set(FETCH_PYBIND11_REPO https://github.com/pybind/pybind11)
 
 if (PYTHON_EXECUTABLE)
@@ -39,6 +39,13 @@ else()
     endif()
   endif()
   set(pybind11_FOUND ON)
+endif()
+
+if (NOT PYTHON_INCLUDE_DIRS)
+  set(PYTHON_INCLUDE_DIRS ${Python3_INCLUDE_DIRS})
+endif()
+if (NOT PYTHON_LIBRARIES)
+  set(PYTHON_LIBRARIES ${Python3_LIBRARIES})
 endif()
 
 # You can set a specific Matlab version folder here
