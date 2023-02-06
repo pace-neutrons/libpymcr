@@ -39,19 +39,6 @@ def is_osx():
     return platform.startswith("macosx")
 
 
-def create_artifact(outfile):
-    import glob
-    import zipfile
-    # Finds all wheels and mex files and zips them into a single file
-    wheels = glob.glob('**/*whl', recursive=True)
-    mexs = glob.glob('**/*.mex*', recursive=True)
-    with zipfile.ZipFile(outfile, mode='w', compression=zipfile.ZIP_DEFLATED) as z:
-        for whl in wheels:
-            z.write(whl, arcname=os.path.basename(whl))
-        for mex in mexs:
-            z.write(mex, arcname=os.path.basename(mex))
-
-
 class CMakeExtension(Extension):
     def __init__(self, name, sourcedir=''):
         Extension.__init__(self, name, sources=[])
@@ -111,18 +98,16 @@ class CMakeBuild(build_ext):
         cxxflags = '{} -DVERSION_INFO=\\"{}\\"'.format(
             env.get('CXXFLAGS', ''), self.distribution.get_version())
         env['CXXFLAGS'] = cxxflags
-        print(env)
         if 'MATLAB_DIR' in env:
             cmake_args += ['-DMatlab_ROOT_DIR=' + env['MATLAB_DIR']]
         elif 'matlabExecutable' in env:
             matlab_path = str(pathlib.Path(env['matlabExecutable']).resolve().parents[1])
             if env['matlabExecutable'].startswith('/host') and not matlab_path.startswith('/host'):
                 matlab_path = '/host/' + matlab_path
-            print(matlab_path)
             cmake_args += ['-DMatlab_ROOT_DIR=' + matlab_path]
             if is_osx():
                 # Matlab doesn't run well on _some_ Mac runners: force version else it times out
-                cmake_args += ['-DMatlab_VERSION_STRING_INTERNAL:INTERNAL="9.8"']
+                cmake_args += ['-DMatlab_VERSION_STRING_INTERNAL:INTERNAL=9.8']
         if not os.path.exists(self.build_temp):
             os.makedirs(self.build_temp)
         check_call(
@@ -172,10 +157,13 @@ try:
 except CalledProcessError:
     print("Failed to build the extension!")
 else:
-    if 'matlabExecutable' in os.environ:
-        # Running in CI, create a artifact zip
-        create_artifact('artifacts.zip')
-        if os.environ['matlabExecutable'].startswith('/host'):
-            # We're in a container, copy it out
-            import shutil
-            shutil.copy('artifacts.zip', os.environ['hostDirectory'])
+    if 'matlabExecutable' in os.environ and 'hostDirectory' in os.environ:
+        # Running in CI, copy mex file out
+        import shutil, glob
+        outdir = os.environ['hostDirectory']
+        if is_vsc():
+            pp = outdir.split('/')[1:]
+            outdir = pp[0] + ':\\' + '\\'.join(pp[1:])
+            print(outdir)
+        for mex in glob.glob('**/*.mex*', recursive=True):
+            shutil.copy(mex, outdir)

@@ -84,7 +84,14 @@ namespace matlab {
             case 4: errmsg = std::string("OTHER: ") + message; break;
             case 5: errmsg = std::string("STOPPED: ") + message; break;
         }
-        reinterpret_cast<std::promise<void>*>(p)->set_exception(std::make_exception_ptr<std::runtime_error>(std::runtime_error(errmsg)));
+        auto err = std::make_exception_ptr<std::runtime_error>(std::runtime_error(errmsg));
+        if (nlhs == 0 && straight) {
+            reinterpret_cast<std::promise<void>*>(p)->set_exception(err);
+        } else if (nlhs == 1 && straight) {
+            reinterpret_cast<std::promise<matlab::data::Array>*>(p)->set_exception(err);
+        } else {
+            reinterpret_cast<std::promise<std::vector<matlab::data::Array> >*>(p)->set_exception(err);
+        }
     }
 
     void _write_buffer(void *buffer, const char16_t* stream, size_t n) {

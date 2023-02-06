@@ -1,6 +1,0 @@
-name: mainenv
-channels:
-  - conda-forge
-dependencies:
-  - numpy
-  - cmake

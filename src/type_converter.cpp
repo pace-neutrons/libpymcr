@@ -34,7 +34,7 @@ PyObject* pymat_converter::is_wrapped_np_data(void *addr) {
     for (auto it = m_py_cache.begin(); it != m_py_cache.end(); it++) {
         py::detail::PyArray_Proxy *arr = py::detail::array_proxy(it->second);
         if (addr == arr->data)
-            return static_cast<PyObject*>(it->second);
+            return reinterpret_cast<PyObject*>(it->second);
     }
     return nullptr;
 }
