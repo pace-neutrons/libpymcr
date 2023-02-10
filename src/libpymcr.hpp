@@ -1,17 +1,7 @@
 #ifndef LIBPYMCR_H
 #define LIBPYMCR_H
 
-#ifdef _WIN32
-#ifndef __wtypes_h__
-#include <wtypes.h>
-#endif
-#ifndef __WINDEF_
-#include <windef.h>
-#endif
-#endif
-
 #include "matlab_cpp_shared.hpp"
-#include <sstream>
 #include <fstream>
 #include "type_converter.hpp"
 

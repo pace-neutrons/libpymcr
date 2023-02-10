@@ -6,14 +6,6 @@
 // Uncomment to use the official interface
 //#include <MatlabCppSharedLib.hpp>
 
-#ifdef _MSC_VER
-#define DLL_SYM __declspec(dllexport)
-#elif __GNUC__ >= 4
-#define DLL_SYM __attribute__((visibility("default")))
-#else
-#define DLL_SYM
-#endif
-
 #ifndef MATLABCPPSHAREDLIB_HPP
 #define MATLABCPPSHAREDLIB_HPP
 // Ensures we don't conflict with the official interface
@@ -33,15 +25,16 @@
 #include <string>
 #include <algorithm>
 #include <future>
-#include <MatlabDataArray/MDArray.hpp>
-#include <MatlabDataArray/detail/HelperFunctions.hpp>
+#include <exception>
+#include <MatlabDataArray/CharArray.hpp>
+#include <MatlabDataArray/StructArray.hpp>
 
-extern "C" DLL_SYM void runtime_create_session(char16_t** options, size_t size);
-extern "C" DLL_SYM void runtime_terminate_session();
-extern "C" DLL_SYM uint64_t create_mvm_instance(const char16_t* name, bool* errFlag);
-extern "C" DLL_SYM void terminate_mvm_instance(const uint64_t mvmHandle);
-extern "C" DLL_SYM void wait_for_figures_to_close(const uint64_t mvmHandle);
-extern "C" DLL_SYM uintptr_t cppsharedlib_feval_with_completion(const uint64_t matlabHandle,
+void runtime_create_session(char16_t** options, size_t size);
+void runtime_terminate_session();
+uint64_t create_mvm_instance(const char16_t* name, bool* errFlag);
+void terminate_mvm_instance(const uint64_t mvmHandle);
+void wait_for_figures_to_close(const uint64_t mvmHandle);
+uintptr_t cppsharedlib_feval_with_completion(const uint64_t matlabHandle,
     const char* function, size_t nlhs, bool scalar, matlab::data::impl::ArrayImpl** args,
     size_t nrhs, void(*success)(void*, size_t, bool, matlab::data::impl::ArrayImpl**),
     void(*exception)(void*, size_t, bool, size_t, const void*), void* p, void* output,
@@ -54,6 +47,19 @@ namespace {
 namespace matlab {
 
   namespace execution {
+ 
+    class Exception : public std::exception, public matlab::Exception {
+        public:
+        std::string message;
+        Exception() :std::exception() {}
+        Exception(const std::string& msg) : message(msg) {}
+        ~Exception() {}
+        Exception& operator=(const Exception& rhs) {
+            message = rhs.message;
+            return *this;
+        }
+        const char* what() const MW_NOEXCEPT { return message.c_str(); }
+    };
 
     void _promise_data(void *p, size_t nlhs, bool straight, matlab::data::impl::ArrayImpl** plhs) {
         if (nlhs == 0 && straight) {
@@ -73,18 +79,47 @@ namespace matlab {
         }
     }
 
+    matlab::data::StructArray _getstruct(const void* input) {
+        auto msgImpl = reinterpret_cast<const matlab::data::impl::ArrayImpl*>(input);
+        matlab::data::Array msg = matlab::data::detail::Access::createObj<matlab::data::Array>(
+            const_cast<matlab::data::impl::ArrayImpl*>(msgImpl));
+        return matlab::data::StructArray(msg);
+    }
+
+    std::string _error_message(const void* msg) {
+        matlab::data::StructArray exception = _getstruct(msg);
+        matlab::data::CharArray id = exception[0][std::string("identifier")];
+        matlab::data::CharArray message = exception[0][std::string("message")];
+        return id.toAscii() + ": " + message.toAscii() + "\n";
+    }
+
+    std::string _stack_trace(const void* msg) {
+        std::string rv = "\n";
+        matlab::data::StructArray exception = _getstruct(msg);
+        matlab::data::StructArray stack = exception[0][std::string("stack")];
+        for (size_t i = 0; i < stack.getNumberOfElements(); i++) {
+            matlab::data::CharArray file = stack[i][std::string("File")];
+            matlab::data::CharArray name = stack[i][std::string("Name")];
+            matlab::data::Array lineRef = stack[i]["Line"];
+            rv += "  File \"" + file.toAscii() + "\", line " + std::to_string(int(lineRef[0]))
+                + ", function \"" + name.toAscii() + "\"\n";
+        }
+        return rv + "\n" + _error_message(msg);
+    }
+
     void _promise_exception(void *p, size_t nlhs, bool straight, size_t excNum, const void* msg) {
         const char* message = reinterpret_cast<const char*>(msg);
         std::string errmsg;
         switch (excNum) {
-            case 0: errmsg = std::string("CANCELLED: ") + message; break;
-            case 1: errmsg = std::string("INTERRUPTED: ") + message; break;
-            case 2: errmsg = std::string("EXECUTION: ") + message; break;
-            case 3: errmsg = std::string("SYNTAX: ") + message; break;
-            case 4: errmsg = std::string("OTHER: ") + message; break;
-            case 5: errmsg = std::string("STOPPED: ") + message; break;
+            case 0: errmsg = std::string("MatlabCancelledError: ") + message; break;
+            case 1: errmsg = std::string("MatlabInterruptedError: ") + message; break;
+            case 2: errmsg = std::string("MatlabExecutionError: ") + _stack_trace(msg); break;
+            case 3: errmsg = std::string("MatlabSyntaxError: ") + _error_message(msg); break;
+            case 4: errmsg = std::string("MatlabOtherError: ") + message; break;
+            case 5: errmsg = std::string("MatlabStoppedError: ") + message; break;
         }
-        auto err = std::make_exception_ptr<std::runtime_error>(std::runtime_error(errmsg));
+        matlab::execution::Exception exception(errmsg);
+        auto err = std::make_exception_ptr<matlab::execution::Exception>(exception);
         if (nlhs == 0 && straight) {
             reinterpret_cast<std::promise<void>*>(p)->set_exception(err);
         } else if (nlhs == 1 && straight) {

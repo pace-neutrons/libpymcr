@@ -4,7 +4,7 @@
 #target_include_directories(type_converter PRIVATE "${pybind11_SOURCE_DIR}/include")
 #set_property(TARGET type_converter PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-pybind11_add_module(_libpymcr libpymcr.cpp type_converter.cpp)
+pybind11_add_module(_libpymcr libpymcr.cpp type_converter.cpp load_matlab.cpp)
 target_include_directories(_libpymcr PRIVATE ${Matlab_INCLUDE_DIRS})
 #target_link_libraries(_libpymcr PUBLIC type_converter)
 

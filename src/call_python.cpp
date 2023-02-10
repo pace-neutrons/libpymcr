@@ -1,12 +1,9 @@
-#include "mex.hpp"
-#include "mexAdapter.hpp"
+#include "matlab_mex.hpp"
 #include "type_converter.hpp"
 
 using namespace matlab::data;
 using matlab::mex::ArgumentList;
 namespace py = pybind11;
-
-#define MATLABERROR(errmsg) matlabPtr->feval(u"error", 0, std::vector<matlab::data::Array>({ factory.createScalar(errmsg) }));
 
 // -------------------------------------------------------------------------------------------------------
 // Mex class to run Python function referenced in a global dictionary
@@ -27,11 +24,10 @@ class MexFunction : public matlab::mex::Function {
 
     public:
         void operator()(ArgumentList outputs, ArgumentList inputs) {
-            std::shared_ptr<matlab::engine::MATLABEngine> matlabPtr = getEngine();
             matlab::data::ArrayFactory factory;
             if (inputs.size() < 1 || inputs[0].getNumberOfElements() != 2 ||
                 inputs[0].getType() != matlab::data::ArrayType::UINT64) { // Matlab only supports 64-bit
-                    MATLABERROR("First input must be pointers to a Python function and converter.");
+                    throw std::runtime_error("First input must be pointers to a Python function and converter.");
             }
             uintptr_t key = inputs[0][0];
             uintptr_t conv_addr = inputs[0][1];
@@ -61,7 +57,7 @@ class MexFunction : public matlab::mex::Function {
                 if (result == NULL) {
                     PyErr_Print();
                     PyGILState_Release(gstate);
-                    MATLABERROR("Python function threw an error.");
+                    throw std::runtime_error("Python function threw an error.");
                 }
                 else {
                     try {
@@ -69,13 +65,13 @@ class MexFunction : public matlab::mex::Function {
                     } catch (char *e) {
                         Py_DECREF(result);
                         PyGILState_Release(gstate);
-                        MATLABERROR(e);
+                        throw std::runtime_error(e);
                     }
                     Py_DECREF(result);
                 }
             } else {
                 PyGILState_Release(gstate);
-                MATLABERROR("Python function is not callable.");
+                throw std::runtime_error("Python function is not callable.");
             }
 
             PyGILState_Release(gstate);  // GIL}

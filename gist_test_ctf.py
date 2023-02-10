@@ -19,7 +19,7 @@ def main():
         raise RuntimeError('One of the options --set, --get or --create must be specified')
 
     if args.get:
-        get_gist(token)
+        get_gist()
     elif args.set:
         set_gist(token)
     else:
@@ -34,11 +34,8 @@ def list_gist(token):
     resp = json.loads(response.text)
 
 
-def get_gist(token):
-    if token is None:
-        headers={'Accept': 'application/vnd.github+json'}
-    else:
-        headers={'Accept': 'application/vnd.github+json', 'Authorization': 'Bearer ' + token}
+def get_gist():
+    headers={'Accept': 'application/vnd.github+json'}
     for gid in GIST_ID:
         response = requests.get(
             'https://api.github.com/gists/' + gid,
