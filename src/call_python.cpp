@@ -43,7 +43,7 @@ class MexFunction : public matlab::mex::Function {
                 try {
                     try {
                         const matlab::data::StructArray in_struct(inputs[endIdx]);
-                        const matlab::data::Array v = in_struct[0][matlab::data::MATLABFieldIdentifier("pyHorace_pyKwArgs")];
+                        const matlab::data::Array v = in_struct[0][std::string("pyHorace_pyKwArgs")];
                         PyObject *kwargs = converter->to_python(inputs[endIdx]);
                         PyDict_DelItemString(kwargs, "pyHorace_pyKwArgs");
                         py::tuple arr_in = convMat2np(inputs, fn_ptr, -2, converter);

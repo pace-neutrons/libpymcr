@@ -4,8 +4,9 @@
 #include <cstddef>
 using ssize_t = std::ptrdiff_t;
 
-#include <MatlabDataArray/TypedArray.hpp>
-#include <MatlabDataArray/ArrayFactory.hpp>
+#include "matlab_data.hpp"
+//#include <MatlabDataArray/TypedArray.hpp>
+//#include <MatlabDataArray/ArrayFactory.hpp>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
