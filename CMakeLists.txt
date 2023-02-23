@@ -48,24 +48,6 @@ if (NOT PYTHON_LIBRARIES)
   set(PYTHON_LIBRARIES ${Python3_LIBRARIES})
 endif()
 
-# You can set a specific Matlab version folder here
-#set(Matlab_ROOT_DIR "c:/Program Files/MATLAB/R2020a")
-set(MATLAB_FIND_DEBUG 1)
-find_package(Matlab)
-
-# On MacOS github runners it can sometimes fail to find the right libraries
-if (NOT Matlab_HAS_CPP_API)
-  if (NOT Matlab_ENGINE_LIBRARY)
-    file(GLOB_RECURSE Matlab_ENGINE_LIBRARY "${Matlab_ROOT_DIR}/extern/bin/*/libMatlabEngine*")
-  endif()
-  if (NOT Matlab_DATAARRAY_LIBRARY)
-    file(GLOB_RECURSE Matlab_DATAARRAY_LIBRARY "${Matlab_ROOT_DIR}/extern/bin/*/libMatlabDataArray*")
-  endif()
-  if (Matlab_ENGINE_LIBRARY AND Matlab_DATAARRAY_LIBRARY)
-    set(Matlab_HAS_CPP_API 1)
-    list(APPEND Matlab_LIBRARIES ${Matlab_ENGINE_LIBRARY})
-    list(APPEND Matlab_LIBRARIES ${Matlab_DATAARRAY_LIBRARY})
-  endif()
-endif()
+include(src/matlab.cmake)
 
 add_subdirectory(src)

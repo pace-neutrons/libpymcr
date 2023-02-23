@@ -165,5 +165,5 @@ else:
             pp = outdir.split('/')[1:]
             outdir = pp[0] + ':\\' + '\\'.join(pp[1:])
             print(outdir)
-        for mex in glob.glob('**/*.mex*', recursive=True):
+        for mex in glob.glob('**/call_python*.mex*', recursive=True):
             shutil.copy(mex, outdir)
