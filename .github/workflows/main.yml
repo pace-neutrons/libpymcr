@@ -25,30 +25,71 @@ jobs:
       fail-fast: false
       matrix:
         variant:
-          - {os: ubuntu-22.04, matlab-version: R2020a, tag: manylinux_x86_64, mlprefix: /host/, mltag: glnxa64, zpsuf: .zip}
-          - {os: macos-12, matlab-version: R2020a, tag: macosx_x86_64, mlprefix: '', mltag: maci64, zpsuf: .dmg.zip}
-          - {os: windows-2022, matlab-version: R2021a, tag: win_amd64, mlprefix: '', mltag: win64, zpsuf: .zip}
-        pyvariant: 
+          - {os: ubuntu-22.04, matlab-version: R2020a, tag: manylinux_x86_64,
+             mlprefix: /host/, mltag: glnxa64, zpsuf: .zip, mldir: /usr/local/MATLAB/R2020a/bin/matlab}
+          - {os: macos-12, matlab-version: R2020a, tag: macosx_x86_64,
+             mlprefix: '', mltag: maci64, zpsuf: .dmg.zip, mldir: /Applications/MATLAB/MATLAB_Runtime/v98}
+          - {os: windows-2022, matlab-version: R2021a, tag: win_amd64,
+             mlprefix: '', mltag: win64, zpsuf: .zip, mldir: '/c/Program Files/MATLAB/MATLAB_Runtime/v98'}
+        pyvariant:
           - {version: '3.8', tag: cp38}
+    env:
+      # Make sure these agree with the v## in matrix.variant.mldir above
+      MCRVER: R2020a
+      MCRREL: 8
 
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Set up MATLAB
+        if: ${{ matrix.variant.os == 'ubuntu-22.04' }}
         uses: matlab-actions/setup-matlab@v1.2.4
         with:
           release: ${{ matrix.variant.matlab-version }}
-      - name: Get Matlab executable
+      - name: Cache MCR
+        if: ${{ matrix.variant.os != 'ubuntu-22.04' }}
+        id: cache-installer
+        uses: actions/cache@v1
+        with:
+          path: installer
+          key: ${{ runner.os }}-matlab-R2020a-installer
+      - name: Download MCR
+        if: ${{ matrix.variant.os != 'ubuntu-22.04' && steps.cache-installer.outputs.cache-hit != 'true' }}
         run: |
-          echo "matlabExecutable=`which matlab`" >> $GITHUB_ENV
+          SUBDIR=MATLAB_Runtime_${MCRVER}_Update_${MCRREL}_
+          URL_PREF=https://ssd.mathworks.com/supportfiles/downloads/${MCRVER}/Release/${MCRREL}/deployment_files/installer/complete/
+          wget --quiet --directory-prefix=installer $URL_PREF${{ matrix.variant.mltag }}/$SUBDIR${{ matrix.variant.mltag }}${{ matrix.variant.zpsuf }}
+      - name: Install Mac MCR
+        if: ${{ matrix.variant.os == 'macos-12' }}
+        run: |
+          unzip -d . -q installer/MATLAB_Runtime_${MCRVER}_Update_${MCRREL}_maci64.dmg.zip
+          hdiutil mount MATLAB_Runtime_${MCRVER}_Update_${MCRREL}_maci64.dmg
+          cp -R /Volumes/MATLAB_Runtime_${MCRVER}_Update_${MCRREL}_maci64 .
+          hdiutil unmount /Volumes/MATLAB_Runtime_${MCRVER}_Update_${MCRREL}_maci64
+          sudo ./MATLAB_Runtime_${MCRVER}_Update_{$MCRREL}_maci64/InstallForMacOSX.app/Contents/MacOS/InstallForMacOSX -mode silent -agreeToLicense yes
+          #MATLAB_RUNTIME_PATH=/Applications/MATLAB/MATLAB_Runtime/v98
+          #echo "MATLAB_RUNTIME_PATH=$MATLAB_RUNTIME_PATH" >> $GITHUB_ENV
+          #echo "DYLD_LIBRARY_PATH=$MATLAB_RUNTIME_PATH/runtime/maci64:$MATLAB_RUNTIME_PATH/sys/os/maci64:$MATLAB_RUNTIME_PATH/bin/maci64" >> $GITHUB_ENV
+          #echo "$MATLAB_RUNTIME_PATH/bin/maci64" >> $GITHUB_PATH
+      - name: Install Win MCR
+        if: ${{ matrix.variant.os == 'windows-2022' }}
+        run: |
+          unzip -d . -q installer/MATLAB_Runtime_${MCRVER}_Update_${MCRREL}_win64.zip
+          powershell -Command ".\MATLAB_Runtime_${Env:MCRVER}_Update_${Env:MCRREL}_win64\setup -mode silent -agreeToLicense yes"
+          sleep 10
+          powershell -Command "while(Get-Process setup_legacy -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 10 }"
+          #MATLAB_RUNTIME_PATH='C:\Program Files\MATLAB\MATLAB Runtime\v98'
+          #echo "$MATLAB_RUNTIME_PATH\\runtime\\win64:$MATLAB_RUNTIME_PATH\\sys\\os\\win64:$MATLAB_RUNTIME_PATH\\bin\\win64" >> $GITHUB_PATH
+      - name: Get host dir
+        run: |
           echo "hostDirectory=`pwd`" >> $GITHUB_ENV
       - name: Build wheel
         uses: pypa/cibuildwheel@v2.12.0
         env:
           CIBW_BUILD: ${{ matrix.pyvariant.tag }}-${{ matrix.variant.tag }}
           CIBW_ENVIRONMENT: >-
-            matlabExecutable="${{ matrix.variant.mlprefix }}${{ env.matlabExecutable }}"
+            matlabExecutable="${{ matrix.variant.mlprefix }}${{ matrix.variant.mldir }}"
             hostDirectory="${{ matrix.variant.mlprefix }}${{ env.hostDirectory }}"
           CIBW_BUILD_VERBOSITY: 1
           MACOSX_DEPLOYMENT_TARGET: "10.15"
@@ -65,47 +106,14 @@ jobs:
             six
             requests
       - name: Install wheel and run test
-        if: ${{ matrix.variant.os == 'ubuntu-22.04' }}
         run: |
           python -m pip install wheelhouse/*
           python gist_test_ctf.py --get --token=${{ secrets.GH_GIST_TOKEN }}
-          python test/run_test.py
-      - name: Cache MCR
-        if: ${{ matrix.variant.os != 'ubuntu-22.04' }}
-        id: cache-installer
-        uses: actions/cache@v1
-        with:
-          path: installer
-          key: ${{ runner.os }}-matlab-R2020a-installer
-      - name: Download MCR
-        if: ${{ matrix.variant.os != 'ubuntu-22.04' && steps.cache-installer.outputs.cache-hit != 'true' }}
-        run: wget --quiet --directory-prefix=installer https://ssd.mathworks.com/supportfiles/downloads/R2020a/Release/8/deployment_files/installer/complete/${{ matrix.variant.mltag }}/MATLAB_Runtime_R2020a_Update_8_${{ matrix.variant.mltag }}${{ matrix.variant.zpsuf }}
-      - name: Install Mac MCR
-        if: ${{ matrix.variant.os == 'macos-12' }}
-        run: |
-          unzip -d . -q installer/MATLAB_Runtime_R2020a_Update_8_maci64.dmg.zip
-          hdiutil mount MATLAB_Runtime_R2020a_Update_8_maci64.dmg
-          cp -R /Volumes/MATLAB_Runtime_R2020a_Update_8_maci64 .
-          hdiutil unmount /Volumes/MATLAB_Runtime_R2020a_Update_8_maci64
-          sudo ./MATLAB_Runtime_R2020a_Update_2_maci64/InstallForMacOSX.app/Contents/MacOS/InstallForMacOSX -mode silent -agreeToLicense yes
-          MATLAB_RUNTIME_PATH=/Applications/MATLAB/MATLAB_Runtime/v98
-          echo "MATLAB_RUNTIME_PATH=$MATLAB_RUNTIME_PATH" >> $GITHUB_ENV
-          echo "DYLD_LIBRARY_PATH=$MATLAB_RUNTIME_PATH/runtime/maci64:$MATLAB_RUNTIME_PATH/sys/os/maci64:$MATLAB_RUNTIME_PATH/bin/maci64" >> $GITHUB_ENV
-          echo "$MATLAB_RUNTIME_PATH/bin/maci64" >> $GITHUB_PATH
-      - name: Install Win MCR
-        if: ${{ matrix.variant.os == 'windows-2022' }}
-        run: |
-          unzip -d . -q installer/MATLAB_Runtime_R2020a_Update_8_win64.zip
-          ls installer
-          ls installer/*
-          ls installer/*/*
-      - name: Run tests on Mac / Windows
-        if: ${{ matrix.variant.os != 'ubuntu-22.04' }}
-        run: |
-          python test/run_test.py
-      #- name: Setup tmate
-      #  if: ${{ failure() }}
-      #  uses: mxschmitt/action-tmate@v3
+          cd test
+          python run_test.py
+      - name: Setup tmate
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
       - uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.variant.os }}_artifacts.zip

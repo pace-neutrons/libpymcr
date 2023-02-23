@@ -7,12 +7,14 @@ std::string _MLVERSTR;
 void *_loadlib(std::string path, const char* libname, std::string mlver) {
 #if defined _WIN32
     void* lib = (void*)LoadLibrary((path + "/win64/" + libname + mlver + ".dll").c_str());
-#elif defined __APPLE__
-    void* lib = dlopen((path + "/maci64/" + libname + mlver + ".dylib").c_str(), RTLD_LAZY);
 #else
     if (mlver.length() > 0)
         mlver = "." + mlver;
+#if defined __APPLE__
+    void* lib = dlopen((path + "/maci64/" + libname + mlver + ".dylib").c_str(), RTLD_LAZY);
+#else
     void* lib = dlopen((path + "/glnxa64/" + libname + ".so" + mlver).c_str(), RTLD_LAZY);
+#endif
 #endif
     if (!lib) {
         throw std::runtime_error(std::string("Cannot load ") + libname);
@@ -105,3 +107,7 @@ int cppsharedlib_run_main(int(*mainfcn)(int, const char**), int argc, const char
     _checklibs(); return ((int(*)(int(*)(int, const char**), int, const char**))_resolve(_LIBCPPSHARED, "cppsharedlib_run_main"))(mainfcn, argc, argv); }
 // DATA_ARRAY
 void* get_function_ptr(int fcn) { _checklibs(); return ((void*(*)(int))_resolve(_LIBDATAARRAY, "get_function_ptr"))(fcn); }
+// MEX
+void* mexGetFunctionImpl() { _checklibs(); return ((void*(*)())_resolve(_LIBMEX, "mexGetFunctionImpl"))(); }
+void mexDestroyFunctionImpl(void* impl) { _checklibs(); return ((void(*)(void*))_resolve(_LIBMEX, "mexDestroyFunctionImpl"))(impl); }
+

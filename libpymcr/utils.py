@@ -106,7 +106,7 @@ class DetectMatlab(object):
         GUESSES = {'Windows': [r'C:\Program Files\MATLAB', r'C:\Program Files (x86)\MATLAB', 
                                r'C:\Program Files\MATLAB\MATLAB Runtime', r'C:\Program Files (x86)\MATLAB\MATLAB Runtime'],
                    'Linux': ['/usr/local/MATLAB', '/opt/MATLAB', '/opt', '/usr/local/MATLAB/MATLAB_Runtime'],
-                   'Darwin': ['/Applications/MATLAB']}
+                   'Darwin': ['/Applications/MATLAB', '/Applications/']}
         if self.system == 'Windows':
             mlPath += get_matlab_from_registry(self.ver) + GUESSES['Windows']
         for possible_dir in mlPath + GUESSES[self.system]:
@@ -173,8 +173,8 @@ def checkPath(runtime_version, mlPath=None):
             else:
                 ld_path = obj.sep.join([os.path.join(mlPath, sub, obj.arch) for sub in obj.required_dirs])
                 os.environ[obj.path_var] = ld_path
-                print('Set ' + os.environ.get(obj.path_var))
-        else:
-            print('Found: ' + os.environ.get(obj.path_var))
+                #print('Set ' + os.environ.get(obj.path_var))
+        #else:
+        #    print('Found: ' + os.environ.get(obj.path_var))
 
     return mlPath

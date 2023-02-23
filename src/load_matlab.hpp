@@ -1,3 +1,6 @@
+#ifndef LOAD_MATLAB_HPP
+#define LOAD_MATLAB_HPP
+
 #ifdef _WIN32
 #ifndef __wtypes_h__
 #include <wtypes.h>
@@ -21,3 +24,8 @@ void *_loadlib(std::string path, const char* libname, std::string mlver="");
 void *_resolve(void* lib, const char* sym);
 std::string _getMLversion(std::string mlroot);
 void _loadlibraries(std::string matlabroot);
+
+void* mexGetFunctionImpl();
+void mexDestroyFunctionImpl(void* impl);
+
+#endif

@@ -6,9 +6,10 @@
 //#include "mex.hpp"
 //#include "mexAdapter.hpp"
 
+#include "load_matlab.hpp"
 #include <cassert>
-//#include <MatlabDataArray/MDArray.hpp>
-#include "matlab_data.hpp"
+#include <cstdlib>
+#include <MatlabDataArray/MDArray.hpp>
 
 #ifndef mex_hpp
 #define mex_hpp
@@ -33,17 +34,6 @@
 #define __MEX_FUNCTION_CPP_HPP__
 #define __MEX_EXCEPTION_CPP_HPP__
 
-#ifdef _MSC_VER
-# define DLLSYM __declspec(dllimport)
-#elif __GNUC__ >= 4
-# define DLLSYM __attribute__ ((visibility("default")))
-#else
-# define DLLSYM
-#endif
-
-extern "C" DLLSYM void* mexGetFunctionImpl();
-extern "C" DLLSYM void mexDestroyFunctionImpl(void*);
-
 namespace matlab {
   namespace mex {
     template <typename iterator_type> class MexIORange {
@@ -66,7 +56,11 @@ namespace matlab {
     class Function {
         void* functionImpl;
         public:
-        Function() { functionImpl = mexGetFunctionImpl(); }
+        Function() {
+            const char* mlroot = std::getenv("LIBPYMCR_MATLAB_ROOT");
+            _loadlibraries(mlroot);
+            functionImpl = mexGetFunctionImpl();
+        }
         virtual ~Function() NOEXCEPT_FALSE { mexDestroyFunctionImpl(functionImpl); }
         virtual void operator()(ArgumentList outputs, ArgumentList inputs) {}
     };
@@ -84,7 +78,7 @@ namespace matlab {
         virtual const char* what() const NOEXCEPT { return message.c_str(); }
         private:
         std::string message;
-    };    
+    };
   } // matlab::engine
 }
 #endif // __MEX_CPP_PUBLISHED_API_HPP__
@@ -150,6 +144,8 @@ template <typename T> matlab::mex::Function * mexCreatorUtil() {
 }
 
 class MexFunction; // This is defined by the user
+// Define null function here for the old interface, else Win/Mac linker complains
+extern "C" void mexFunction() {}
 
 extern "C" DLLEXP void* mexCreateMexFunction(void (*callbackErrHandler)(const char*, const char*)) {
     try {

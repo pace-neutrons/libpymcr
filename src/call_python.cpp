@@ -52,7 +52,7 @@ class MexFunction : public matlab::mex::Function {
                         py::tuple arr_in = convMat2np(inputs, fn_ptr, -1, converter);
                         result = PyObject_CallObject(fn_ptr, arr_in.ptr());
                     }
-                } catch (char *e) {
+                } catch (...) {
                 }
                 if (result == NULL) {
                     PyErr_Print();

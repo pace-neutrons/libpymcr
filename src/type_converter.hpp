@@ -1,6 +1,7 @@
 #ifndef TYPECONVERTER_H
 #define TYPECONVERTER_H
 
+#include "load_matlab.hpp"
 #include <cstddef>
 using ssize_t = std::ptrdiff_t;
 

@@ -18,6 +18,7 @@ class _MatlabInstance(object):
             raise RuntimeError('CTF file {} does not exist'.format(ctffile))
         if matlab_dir is None:
             matlab_dir = checkPath(get_version_from_ctf(ctffile))
+        os.environ["LIBPYMCR_MATLAB_ROOT"] = matlab_dir
         self.ctf = ctffile
         self.interface = _libpymcr.matlab(ctffile, matlab_dir)
         print('Interface opened')
