@@ -2,6 +2,8 @@
 #include "libpymcr.hpp"
 #include <pybind11/stl.h>
 
+int cppsharedlib_run_main(int(*mainfcn)(int, const char**), int argc, const char** argv);
+
 namespace libpymcr {
 
     matlab::data::Array matlab_env::_conv_to_matlab(PyObject* input) {
@@ -102,10 +104,66 @@ namespace libpymcr {
         auto mode = matlab::cpplib::MATLABApplicationMode::IN_PROCESS;
         // Specify MATLAB startup options
         _app = matlab::cpplib::initMATLABApplication(mode, options);
+#if defined __APPLE__
+        _exit_flag = false;
+        std::thread threadMain(
+            [&]()
+            {
+                const char* argv[] = {reinterpret_cast<const char*>(ctfname.c_str()),
+                                      reinterpret_cast<const char*>(static_cast<void*>(&_lib_handle)),
+                                      reinterpret_cast<const char*>(static_cast<void*>(&_mutex)),
+                                      reinterpret_cast<const char*>(static_cast<void*>(&_cond_var)),
+                                      reinterpret_cast<const char*>(static_cast<void*>(&_exit_flag))};
+                cppsharedlib_run_main(
+                    [](int c, const char **v) -> int
+                    {
+                        const char16_t* ctflib = reinterpret_cast<const char16_t*>(v[0]);
+                        uint64_t* _lib_handle_ptr = reinterpret_cast<uint64_t*>((void*)(v[1]));
+                        std::mutex* mutex_ptr = reinterpret_cast<std::mutex*>((void*)(v[2]));
+                        std::condition_variable* cv_ptr = reinterpret_cast<std::condition_variable*>((void*)(v[3]));
+                        bool* exit_flag_ptr = reinterpret_cast<bool*>((void*)(v[4]));
+                        bool errFlag = false;
+                        uint64_t handle = create_mvm_instance(ctflib, &errFlag);
+                        if (errFlag) {
+                            throw std::runtime_error("Failed to initialize MATLABLibrary");
+                        }
+                        { // Enter scope to acquire mutex, released on exit
+                            std::lock_guard<std::mutex> lock(*mutex_ptr);
+                            *_lib_handle_ptr = handle;
+                        }
+                        cv_ptr->notify_all();
+                        while(true)
+                        {
+                            std::unique_lock<std::mutex> lock(*mutex_ptr);
+                            cv_ptr->wait(lock);
+                            if (*exit_flag_ptr) {
+                                break;
+                            }
+                        }
+                        return 0;
+                    },
+                    0, argv);
+            }
+        );
+        std::unique_lock<std::mutex> lock(_mutex);
+        _cond_var.wait(lock);
+        _lib = std::unique_ptr<matlab::cpplib::MATLABLibrary>(new matlab::cpplib::MATLABLibrary(_app, _lib_handle));
+#else
         _lib = matlab::cpplib::initMATLABLibrary(_app, ctfname);
+#endif
         _converter = pymat_converter(pymat_converter::NumpyConversion::WRAP);
     }
 
+    matlab_env::~matlab_env() {
+        _lib->waitForFiguresToClose();
+#if defined __APPLE__
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            _exit_flag = true;
+        }
+        _cond_var.notify_all();
+#endif
+    }
 
 } // namespace libpymcr
 

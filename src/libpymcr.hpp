@@ -4,6 +4,7 @@
 #include "matlab_cpp_shared.hpp"
 #include <fstream>
 #include "type_converter.hpp"
+#include <thread>
 
 typedef std::basic_streambuf<char16_t> StreamBuffer;
 typedef std::basic_stringbuf<char16_t> StringBuffer;
@@ -23,13 +24,15 @@ namespace libpymcr {
         pymat_converter _converter;
         matlab::data::Array _conv_to_matlab(PyObject* input);
         size_t _parse_inputs(std::vector<matlab::data::Array>& m_args, py::args py_args, py::kwargs& py_kwargs);
+        std::mutex _mutex;
+        std::condition_variable _cond_var;
+        bool _exit_flag;
+        uint64_t _lib_handle;
     public:
         py::object feval(const std::u16string &funcname, py::args args, py::kwargs& kwargs);
         py::object call(py::args args, py::kwargs& kwargs);
         matlab_env(const std::u16string ctfname, std::string matlabroot, std::vector<std::u16string> options);
-        ~matlab_env() {
-            _lib->waitForFiguresToClose();
-        }
+        ~matlab_env();
     };
 
 
