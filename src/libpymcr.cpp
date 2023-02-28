@@ -100,7 +100,7 @@ namespace libpymcr {
         _loadlibraries(matlabroot);
         auto mode = matlab::cpplib::MATLABApplicationMode::IN_PROCESS;
         // Specify MATLAB startup options
-        std::vector<std::u16string> options = {u""};
+        std::vector<std::u16string> options = {u"-nojvm"};
         _app = matlab::cpplib::initMATLABApplication(mode, options);
         _lib = matlab::cpplib::initMATLABLibrary(_app, ctfname);
         _converter = pymat_converter(pymat_converter::NumpyConversion::WRAP);
