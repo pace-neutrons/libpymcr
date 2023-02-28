@@ -100,20 +100,17 @@ jobs:
             numpy
             six
       - name: Install wheel and run test
-        if: ${{ matrix.variant.os != 'macos-12' }}
         run: |
           if [ "$RUNNER_OS" == "Windows" ]; then
             # On Windows, micromamba only sets up for powershell
-            conda init
-            source ~/.bashrc
-            conda activate libpymcr-test
+            eval "$($MAMBA_EXE shell activate libpymcr-test)"
           fi
           python -m pip install wheelhouse/*
           cd test
           python run_test.py
-      - name: Setup tmate
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
+     #- name: Setup tmate
+     #  if: ${{ failure() }}
+     #  uses: mxschmitt/action-tmate@v3
       - uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.variant.os }}_artifacts.zip
