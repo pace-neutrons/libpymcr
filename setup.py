@@ -105,7 +105,6 @@ class CMakeBuild(build_ext):
             if is_vsc():
                 pp = ml_env.split('/')[1:]
                 ml_env = pp[0] + ':\\' + '\\'.join(pp[1:])
-            print(ml_env)
             matlab_path = str(pathlib.Path(ml_env).resolve().parents[1])
             if ml_env.startswith('/host') and not matlab_path.startswith('/host'):
                 matlab_path = '/host/' + matlab_path
@@ -169,6 +168,5 @@ else:
         if is_vsc():
             pp = outdir.split('/')[1:]
             outdir = pp[0] + ':\\' + '\\'.join(pp[1:])
-            print(outdir)
         for mex in glob.glob('**/call_python*.mex*', recursive=True):
             shutil.copy(mex, outdir)

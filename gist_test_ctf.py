@@ -43,8 +43,6 @@ def get_gist(token=None):
         response = requests.get(
             'https://api.github.com/gists/' + gid,
             headers=headers)
-        print(response.status_code)
-        print(response.text)
         assert response.status_code == 200, 'Could not download gist'
         jsout = json.loads(response.text) 
         for fname in jsout['files'].keys():

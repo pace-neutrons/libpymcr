@@ -110,8 +110,13 @@ class DetectMatlab(object):
                    'Darwin': ['/Applications/MATLAB', '/Applications/']}
         if self.system == 'Windows':
             mlPath += get_matlab_from_registry(self.ver) + GUESSES['Windows']
-        if 'matlabExecutable' in os.environ: # Running in CI
-            mlPath += os.path.abspath(os.path.join(os.environ['matlabExecutable'], '..', '..'))
+        if 'MATLABEXECUTABLE' in os.environ: # Running in CI
+            ml_env = os.environ['MATLABEXECUTABLE']
+            if self.system == 'Windows' and ':' not in ml_env:
+                pp = ml_env.split('/')[1:]
+                ml_env = pp[0] + ':\\' + '\\'.join(pp[1:])
+            mlPath += [os.path.abspath(os.path.join(ml_env, '..', '..'))]
+            print(f'mlPath={mlPath}')
         for possible_dir in mlPath + GUESSES[self.system]:
             if os.path.isdir(possible_dir):
                 rv = self.find_version(possible_dir)
