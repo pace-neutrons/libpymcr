@@ -79,6 +79,7 @@ class DetectMatlab(object):
             raise RuntimeError(f'Operating system {self.system} is not supported.')
 
     def find_version(self, root_dir):
+        print(f'Searching for Matlab in {root_dir}')
         def find_file(path, filename, max_depth=3):
             """ Finds a file, will return first match"""
             for depth in range(max_depth + 1):
