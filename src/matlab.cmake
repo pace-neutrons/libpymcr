@@ -1,5 +1,5 @@
 # You can set a specific Matlab version folder here
-#set(Matlab_ROOT_DIR "c:/Program Files/MATLAB/R2020a")
+#set(Matlab_ROOT_DIR "d:/MATLAB/Matlab Runtime/v910")
 #set(MATLAB_FIND_DEBUG 1)
 find_package(Matlab)
 
