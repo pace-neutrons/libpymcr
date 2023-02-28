@@ -100,9 +100,14 @@ class CMakeBuild(build_ext):
         env['CXXFLAGS'] = cxxflags
         if 'MATLAB_DIR' in env:
             cmake_args += ['-DMatlab_ROOT_DIR=' + env['MATLAB_DIR']]
-        elif 'matlabExecutable' in env:
-            matlab_path = str(pathlib.Path(env['matlabExecutable']).resolve().parents[1])
-            if env['matlabExecutable'].startswith('/host') and not matlab_path.startswith('/host'):
+        elif 'MATLABEXECUTABLE' in env:
+            ml_env = env['MATLABEXECUTABLE']
+            if is_vsc():
+                pp = ml_env.split('/')[1:]
+                ml_env = pp[0] + ':\\' + '\\'.join(pp[1:])
+            print(ml_env)
+            matlab_path = str(pathlib.Path(ml_env).resolve().parents[1])
+            if ml_env.startswith('/host') and not matlab_path.startswith('/host'):
                 matlab_path = '/host/' + matlab_path
             cmake_args += ['-DMatlab_ROOT_DIR=' + matlab_path]
             if is_osx():
@@ -157,10 +162,10 @@ try:
 except CalledProcessError:
     print("Failed to build the extension!")
 else:
-    if 'matlabExecutable' in os.environ and 'hostDirectory' in os.environ:
+    if 'MATLABEXECUTABLE' in os.environ and 'HOSTDIRECTORY' in os.environ:
         # Running in CI, copy mex file out
         import shutil, glob
-        outdir = os.environ['hostDirectory']
+        outdir = os.environ['HOSTDIRECTORY']
         if is_vsc():
             pp = outdir.split('/')[1:]
             outdir = pp[0] + ':\\' + '\\'.join(pp[1:])

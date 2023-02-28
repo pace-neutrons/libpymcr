@@ -20,7 +20,7 @@ def main():
         raise RuntimeError('One of the options --set, --get or --create must be specified')
 
     if args.get:
-        get_gist()
+        get_gist(token)
     elif args.set:
         set_gist(token)
     else:
@@ -35,12 +35,16 @@ def list_gist(token):
     resp = json.loads(response.text)
 
 
-def get_gist():
+def get_gist(token=None):
     headers={'Accept': 'application/vnd.github+json'}
+    if token is not None:
+        headers = {'Authorization': 'Bearer ' + token, **headers}
     for gid in GIST_ID:
         response = requests.get(
             'https://api.github.com/gists/' + gid,
             headers=headers)
+        print(response.status_code)
+        print(response.text)
         assert response.status_code == 200, 'Could not download gist'
         jsout = json.loads(response.text) 
         for fname in jsout['files'].keys():

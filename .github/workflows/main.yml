@@ -58,17 +58,19 @@ jobs:
           mkdir -p mcr 
           pip3 install requests
           python3 gist_test_ctf.py --get --token=${{ secrets.GH_GIST_TOKEN }}
-          echo "hostDirectory=`pwd`" >> $GITHUB_ENV
+          echo "HOSTDIRECTORY=`pwd`" >> $GITHUB_ENV
           if which matlab; then
-            echo "matlabExecutable=`which matlab`" >> $GITHUB_ENV;
+            echo "MATLABEXECUTABLE=`which matlab`" >> $GITHUB_ENV;
           else
-            echo "matlabExecutable=`pwd`/mcr/bin/matlab" >> $GITHUB_ENV;
+            echo "MATLABEXECUTABLE=`pwd`/mcr/bin/matlab" >> $GITHUB_ENV;
           fi
       - name: Install Mac MCR
         if: ${{ matrix.variant.os == 'macos-12' && steps.cache-mcr.outputs.cache-hit != 'true' }}
         run: |
           unzip -d . -q test/pace_neutrons_installer.zip
           sudo ./pace_neutrons_installer/Contents/MacOS/setup -mode silent -agreeToLicense yes
+          sleep 10
+          while [[ ! -z $(ps aux |grep installer | grep mathworks) ]]; do sleep 10; done
           cp -r /Applications/MATLAB/MATLAB_Runtime/v98/* mcr/
       - name: Install Win MCR
         if: ${{ matrix.variant.os == 'windows-2022' && steps.cache-mcr.outputs.cache-hit != 'true' }}
@@ -82,8 +84,8 @@ jobs:
         env:
           CIBW_BUILD: ${{ matrix.pyvariant.tag }}-${{ matrix.variant.tag }}
           CIBW_ENVIRONMENT: >-
-            matlabExecutable="${{ matrix.variant.mlprefix }}${{ env.matlabExecutable }}"
-            hostDirectory="${{ matrix.variant.mlprefix }}${{ env.hostDirectory }}"
+            MATLABEXECUTABLE="${{ matrix.variant.mlprefix }}${{ env.MATLABEXECUTABLE }}"
+            HOSTDIRECTORY="${{ matrix.variant.mlprefix }}${{ env.HOSTDIRECTORY }}"
           CIBW_BUILD_VERBOSITY: 1
           MACOSX_DEPLOYMENT_TARGET: "10.15"
       - name: Setup micromamba environment
@@ -98,9 +100,10 @@ jobs:
             numpy
             six
       - name: Install wheel and run test
-        if: ${{ matrix.variant.os != 'windows-2022' }}
+        if: ${{ matrix.variant.os != 'macos-12' }}
         run: |
           if [ "$RUNNER_OS" == "Windows" ]; then
+            # On Windows, micromamba only sets up for powershell
             conda init
             source ~/.bashrc
             conda activate libpymcr-test
