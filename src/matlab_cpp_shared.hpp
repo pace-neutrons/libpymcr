@@ -3,6 +3,13 @@
  * Matlab on github-hosted action runners for MacOS X and Windows.
  */
 
+// These defines are only need if we use the official interface
+// and ensures that API functions are declared without extern "C"
+// because we actually define them internally in load_matlab.cpp
+#define CPPSHAREDLIB_API_UTIL_HPP
+#define CPP_RUNTIME_API
+#define CPP_RUNTIME_C_API
+
 // Uncomment to use the official interface
 //#include <MatlabCppSharedLib.hpp>
 
@@ -39,6 +46,7 @@ uintptr_t cppsharedlib_feval_with_completion(const uint64_t matlabHandle,
     size_t nrhs, void(*success)(void*, size_t, bool, matlab::data::impl::ArrayImpl**),
     void(*exception)(void*, size_t, bool, size_t, const void*), void* p, void* output,
     void* error, void(*write)(void*, const char16_t*, size_t), void(*deleter)(void*));
+int cppsharedlib_run_main(int(*mainfcn)(int, const char**), int argc, const char** argv);
 
 namespace {
     typedef std::basic_streambuf<char16_t> StreamBuffer;

@@ -79,3 +79,5 @@ test/demo
 
 tmp
 temp
+
+*.diff

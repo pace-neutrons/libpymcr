@@ -102,7 +102,29 @@ namespace libpymcr {
         // Specify MATLAB startup options
         std::vector<std::u16string> options = {u""};
         _app = matlab::cpplib::initMATLABApplication(mode, options);
+        std::cout << "After initApp\n" << std::flush;
+#if 1 //defined __APPLE__
+        uint64_t outside_handle;
+        const char *argv[2];
+        argv[0] = reinterpret_cast<const char*>(ctfname.c_str());
+        argv[1] = reinterpret_cast<const char*>(static_cast<void*>(&outside_handle));
+        cppsharedlib_run_main([](int c, const char** v) -> int {
+            bool errFlag = false;
+            uint64_t handle = create_mvm_instance(reinterpret_cast<const char16_t*>(v[0]), &errFlag);
+            std::cout << "handle = " << handle << "\n" << std::flush;
+            if (errFlag) {
+                throw std::runtime_error("Failed to initialize MATLABlibrary");
+            }
+            uint64_t *h2 = reinterpret_cast<uint64_t*>((void*)(v[1]));
+            *h2 = handle;
+            return 0; }, 2, argv);
+        std::cout << "After runMain\n" << std::flush;
+        std::cout << "handle = " << outside_handle << "\n" << std::flush;
+        _lib = std::unique_ptr<matlab::cpplib::MATLABLibrary>(new matlab::cpplib::MATLABLibrary(_app, outside_handle));
+#else
         _lib = matlab::cpplib::initMATLABLibrary(_app, ctfname);
+#endif
+        std::cout << "After initLib\n" << std::flush;
         _converter = pymat_converter(pymat_converter::NumpyConversion::WRAP);
     }
 
