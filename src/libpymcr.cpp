@@ -1,5 +1,6 @@
 #include "load_matlab.hpp"
 #include "libpymcr.hpp"
+#include <pybind11/stl.h>
 
 namespace libpymcr {
 
@@ -96,11 +97,10 @@ namespace libpymcr {
     }
 
     // Constructor
-    matlab_env::matlab_env(const std::u16string ctfname, std::string matlabroot) {
+    matlab_env::matlab_env(const std::u16string ctfname, std::string matlabroot, std::vector<std::u16string> options) {
         _loadlibraries(matlabroot);
         auto mode = matlab::cpplib::MATLABApplicationMode::IN_PROCESS;
         // Specify MATLAB startup options
-        std::vector<std::u16string> options = {u""};
         _app = matlab::cpplib::initMATLABApplication(mode, options);
         _lib = matlab::cpplib::initMATLABLibrary(_app, ctfname);
         _converter = pymat_converter(pymat_converter::NumpyConversion::WRAP);
@@ -112,8 +112,8 @@ namespace libpymcr {
 
 PYBIND11_MODULE(_libpymcr, m) {
     py::class_<libpymcr::matlab_env>(m, "matlab")
-        .def(py::init<const std::u16string, std::string>(),
-             py::arg("ctfname")=u"libpace.ctf", py::arg("matlabroot")="/usr/local/MATLAB/R2020a/")
+        .def(py::init<const std::u16string, std::string, std::vector<std::u16string>>(),
+             py::arg("ctfname"), py::arg("matlabroot"), py::arg("options"))
         .def("feval", &libpymcr::matlab_env::feval)
         .def("call", &libpymcr::matlab_env::call);
 }
