@@ -12,15 +12,21 @@ from . import _libpymcr
 _global_matlab_ref = None
 
 class _MatlabInstance(object):
-    def __init__(self, ctffile, matlab_dir=None):
+    def __init__(self, ctffile, matlab_dir=None, options=None):
         ctffile = os.path.abspath(ctffile)
         if not os.path.exists(ctffile):
             raise RuntimeError('CTF file {} does not exist'.format(ctffile))
         if matlab_dir is None:
             matlab_dir = checkPath(get_version_from_ctf(ctffile))
+        if options is None:
+            # macOS machines need a main function to run the Cocoa interface
+            # so, at least at present, they can not create a library instance
+            # of MATLAB with plotting capabilities
+            from platform import system
+            options = ["-nojvm" if system() == 'Darwin' else ""]
         os.environ["LIBPYMCR_MATLAB_ROOT"] = matlab_dir
         self.ctf = ctffile
-        self.interface = _libpymcr.matlab(ctffile, matlab_dir)
+        self.interface = _libpymcr.matlab(ctffile, matlab_dir, options)
         print('Interface opened')
 
     def __getattr__(self, name):
