@@ -22,7 +22,11 @@ struct mxArray_header_2020a* _get_mxArray(Array arr) {
     matlab::data::impl::ArrayImpl* imp = reinterpret_cast<mArray*>(&arr)->get_ptr();
     struct impl_header_col_major* m0 = reinterpret_cast<struct impl_header_col_major*>(imp);
     struct impl_header_col_major* m1 = reinterpret_cast<struct impl_header_col_major*>(m0->data_ptr);
+#if defined __APPLE__
+    return reinterpret_cast<struct mxArray_header_2020a*>(m1->data_ptr);
+#else
     return reinterpret_cast<struct mxArray_header_2020a*>(m1->mxArray);
+#endif
 }
 
 // -------------------------------------------------------------------------------------------------------
