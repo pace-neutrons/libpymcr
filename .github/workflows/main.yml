@@ -6,6 +6,8 @@ on:
   pull_request:
     branches: [main]
     types: [opened, reopened, synchronize]
+  release:
+    types: [published]
   workflow_dispatch:
 
 concurrency :
@@ -16,104 +18,163 @@ defaults:
   run:
     shell: bash -l {0}
 
-jobs:
-  build_and_test:
-    name: Build and test, ${{ matrix.variant.os }}, py${{ matrix.pyvariant.version }}
-    runs-on: ${{ matrix.variant.os }}
-    # Matlab only provides binaries for 64-bit systems - so force x86_64 builds
-    strategy:
-      fail-fast: false
-      matrix:
-        variant:
-          - {os: ubuntu-22.04, matlab-version: R2020a, tag: manylinux_x86_64, mlprefix: /host/,
-             mltag: glnxa64, zpsuf: .zip, python_shell: 'bash -l {0}'}
-          - {os: macos-12, matlab-version: R2020a, tag: macosx_x86_64, mlprefix: '',
-             mltag: maci64, zpsuf: .dmg.zip, python_shell: 'bash -l {0}'}
-          - {os: windows-2022, matlab-version: R2021a, tag: win_amd64, mlprefix: '',
-             mltag: win64, zpsuf: .zip, python_shell: 'powershell'}
-        pyvariant:
-          - {version: '3.8', tag: cp38}
-    env:
-      # MCRVER and MCRV must agree (R2020a is v98, R2022b is v913 etc)
-      MCRVER: R2020a
+env:
+  # Matlab only provides binaries for 64-bit systems - so force x86_64 builds in "tag"
+  JSONSTR: |
+    {
+      "pyvers": {
+        "push": ["3.8"],
+        "pull_request": ["3.8"],
+        "release": ["3.7", "3.8", "3.9", "3.10", "3.11"],
+        "workflow_dispatch": ["3.8"]
+      },
+      "os_map": {
+        "ubuntu-22.04": {
+          "mlver": "R2020a",
+          "tag": "manylinux_x86_64",
+          "mlprefix": "/host/"
+        },
+        "windows-2022": {
+          "mlver": "R2021a",
+          "tag": "win_amd64",
+          "mlprefix": ""
+        },
+        "macos-12": {
+          "mlver": "R2020a",
+          "tag": "macosx_x86_64",
+          "mlprefix": ""
+        }
+      }
+    }
+  # Must match what is stored in the gists
+  MCRVER: R2020a
 
+jobs:
+  cache_matlab:
+    name: Create Matlab cache, ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, windows-2022, macos-12]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Set up MATLAB
-        if: ${{ matrix.variant.os == 'ubuntu-22.04' }}
-        uses: matlab-actions/setup-matlab@v1.2.4
-        with:
-          release: ${{ matrix.variant.matlab-version }}
       - name: Cache MCR
-        if: ${{ matrix.variant.os != 'ubuntu-22.04' }}
+        if: ${{ matrix.os != 'ubuntu-22.04' }}
         id: cache-mcr
         uses: actions/cache@v3
         with:
           path: mcr
           key: ${{ runner.os }}-matlab-${{ env.MCRVER }}-mcr
-      - name: Setup directories
+          lookup-only: true
+      - name: Cache gists
+        if: ${{ matrix.os != 'ubuntu-22.04' }}
+        id: cache-gists
+        uses: actions/cache@v3
+        with:
+          path: gists
+          key: ${{ runner.os }}-gists
+          lookup-only: true
+      - name: Download gists 
+        if: ${{ steps.cache-gists.outputs.cache-hit != 'true' }}
         run: |
-          mkdir -p mcr 
+          mkdir -p gists
           pip3 install requests
-          python3 gist_test_ctf.py --get --token=${{ secrets.GH_GIST_TOKEN }}
-          echo "HOSTDIRECTORY=`pwd`" >> $GITHUB_ENV
-          if which matlab; then
-            echo "MATLABEXECUTABLE=`which matlab`" >> $GITHUB_ENV;
-          else
-            echo "MATLABEXECUTABLE=`pwd`/mcr/bin/matlab" >> $GITHUB_ENV;
-          fi
+          python3 gist_test_ctf.py --get --token=${{ secrets.GH_GIST_TOKEN }} --dir gists
       - name: Install Mac MCR
-        if: ${{ matrix.variant.os == 'macos-12' && steps.cache-mcr.outputs.cache-hit != 'true' }}
+        if: ${{ matrix.os == 'macos-12' && steps.cache-mcr.outputs.cache-hit != 'true' }}
         run: |
+          mkdir -p mcr
           unzip -d . -q test/pace_neutrons_installer.zip
           sudo ./pace_neutrons_installer/Contents/MacOS/setup -mode silent -agreeToLicense yes
           sleep 10
           while [[ ! -z $(ps aux |grep installer | grep mathworks) ]]; do sleep 10; done
           cp -r /Applications/MATLAB/MATLAB_Runtime/v98/* mcr/
       - name: Install Win MCR
-        if: ${{ matrix.variant.os == 'windows-2022' && steps.cache-mcr.outputs.cache-hit != 'true' }}
+        if: ${{ matrix.os == 'windows-2022' && steps.cache-mcr.outputs.cache-hit != 'true' }}
         run: |
+          mkdir -p mcr
           powershell -Command "test\pace_neutrons_installer.exe -mode silent -agreeToLicense yes"
           sleep 10
           powershell -Command "while(Get-Process pace_neutrons_installer -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 10 }"
           cp -r /c/Program\ Files/MATLAB/MATLAB\ Runtime/v98/* mcr/
-      - name: Build wheel
-        uses: pypa/cibuildwheel@v2.12.0
+
+  build_and_test:
+    name: Build and test, ${{ matrix.os }}, py${{ matrix.pyver }}
+    needs: cache_matlab
+    # OS strategy matrix must match key in env.os_map above
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, windows-2022, macos-12]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Setup variables
+        id: vars
+        run: |
+          echo CIBW=`echo $JSONSTR | jq ".os_map[\"${{ matrix.os }}\"].tag as \\\$tag| .pyvers[\"${{ github.event_name }}\"] \
+           | [.[] | capture(\"(?<maj>[0-9]+)\\\\\\.(?<min>[0-9]+)\") | \"cp\(.maj)\(.min)-\(\\\$tag)\"] | @csv" | sed s/[\\\\\"]//g` >> $GITHUB_ENV
+          echo PYVERS=`echo $a | jq ".pyvers[\"${{ github.event_name }}\"] | @sh"` >> $GITHUB_ENV
+          echo MLVER=`echo $JSONSTR | jq ".os_map[\"${{ matrix.os }}\"].mlver"` >> $GITHUB_ENV
+          echo MLPREFIX=`echo $JSONSTR | jq ".os_map[\"${{ matrix.os }}\"].mlprefix"` >> $GITHUB_ENV
+          echo "HOSTDIRECTORY=`pwd`" >> $GITHUB_ENV
+          if which matlab; then
+            echo "MATLABEXECUTABLE=`which matlab`" >> $GITHUB_ENV;
+          else
+            echo "MATLABEXECUTABLE=`pwd`/mcr/bin/matlab" >> $GITHUB_ENV;
+          fi
+          env
+      - name: Set up MATLAB
+        if: ${{ matrix.os == 'ubuntu-22.04' }}
+        uses: matlab-actions/setup-matlab@v1.2.4
+        with:
+          release: ${{ env.MLVER }}
+      - uses: actions/cache/restore@v3
+        if: ${{ matrix.os != 'ubuntu-22.04' }}
+        with:
+          path: mcr
+          key: ${{ runner.os }}-matlab-${{ env.MCRVER }}-mcr
+          fail-on-cache-miss: true
+      - uses: actions/cache/restore@v3
+        with:
+          path: gist
+          key: ${{ runner.os }}-gists
+          fail-on-cache-miss: true
+      - uses: pypa/cibuildwheel@v2.12.0
         env:
-          CIBW_BUILD: ${{ matrix.pyvariant.tag }}-${{ matrix.variant.tag }}
+          CIBW_BUILD: ${{ env.CIBW }}
           CIBW_ENVIRONMENT: >-
-            MATLABEXECUTABLE="${{ matrix.variant.mlprefix }}${{ env.MATLABEXECUTABLE }}"
-            HOSTDIRECTORY="${{ matrix.variant.mlprefix }}${{ env.HOSTDIRECTORY }}"
+            MATLABEXECUTABLE="${{ env.MLPREFIX }}${{ env.MATLABEXECUTABLE }}"
+            HOSTDIRECTORY="${{ env.MLPREFIX }}${{ env.HOSTDIRECTORY }}"
           CIBW_BUILD_VERBOSITY: 1
           MACOSX_DEPLOYMENT_TARGET: "10.15"
-      - name: Setup micromamba environment
-        uses: mamba-org/provision-with-micromamba@main
+      - uses: mamba-org/provision-with-micromamba@main
         with:
-          micromamba-version: "1.1.0"
           environment-file: false
-          environment-name: libpymcr-test
-          channels: conda-forge
-          extra-specs: |
-            python=${{ matrix.pyvariant.version }}
-            numpy
-            six
-      - name: Install wheel and run test
+          cache-downloads: true
+      - name: Install wheels and run test
         run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            # On Windows, micromamba only sets up for powershell
-            eval "$($MAMBA_EXE shell activate libpymcr-test)"
-          fi
-          python -m pip install wheelhouse/*
-          cd test
-          python run_test.py
-     #- name: Setup tmate
-     #  if: ${{ failure() }}
-     #  uses: mxschmitt/action-tmate@v3
+          cp -f gist/* test/
+          for pyver in `echo $PYVER | sed s/[\"\']//g`; do
+            $MAMBA_EXE create -n py$pyver python=$pyver numpy six
+            if [ "$RUNNER_OS" == "Windows" ]; then
+              # On Windows, micromamba only sets up for powershell
+              eval "$($MAMBA_EXE shell activate py$pyver)"
+            fi
+            python -m pip install wheelhouse/*cp$(echo $pyver | sed s/\\.//)*
+            cd test
+            python run_test.py
+            cd ..
+          done
+      - name: Setup tmate
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
       - uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.variant.os }}_artifacts.zip
+          name: ${{ matrix.os }}_artifacts.zip
           path: |
             wheelhouse/*
             *.mex*
