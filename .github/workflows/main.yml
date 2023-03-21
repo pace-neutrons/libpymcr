@@ -69,7 +69,6 @@ jobs:
           key: ${{ runner.os }}-matlab-${{ env.MCRVER }}-mcr
           lookup-only: true
       - name: Cache gists
-        if: ${{ matrix.os != 'ubuntu-22.04' }}
         id: cache-gists
         uses: actions/cache@v3
         with:
@@ -86,7 +85,7 @@ jobs:
         if: ${{ matrix.os == 'macos-12' && steps.cache-mcr.outputs.cache-hit != 'true' }}
         run: |
           mkdir -p mcr
-          unzip -d . -q test/pace_neutrons_installer.zip
+          unzip -d . -q gists/pace_neutrons_installer.zip
           sudo ./pace_neutrons_installer/Contents/MacOS/setup -mode silent -agreeToLicense yes
           sleep 10
           while [[ ! -z $(ps aux |grep installer | grep mathworks) ]]; do sleep 10; done
@@ -95,7 +94,7 @@ jobs:
         if: ${{ matrix.os == 'windows-2022' && steps.cache-mcr.outputs.cache-hit != 'true' }}
         run: |
           mkdir -p mcr
-          powershell -Command "test\pace_neutrons_installer.exe -mode silent -agreeToLicense yes"
+          powershell -Command "gists\pace_neutrons_installer.exe -mode silent -agreeToLicense yes"
           sleep 10
           powershell -Command "while(Get-Process pace_neutrons_installer -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 10 }"
           cp -r /c/Program\ Files/MATLAB/MATLAB\ Runtime/v98/* mcr/
@@ -103,7 +102,7 @@ jobs:
   build_and_test:
     name: Build and test, ${{ matrix.os }}, py${{ matrix.pyver }}
     needs: cache_matlab
-    # OS strategy matrix must match key in env.os_map above
+    # OS strategy matrix must match key in JSONSTR.os_map above
     strategy:
       matrix:
         os: [ubuntu-22.04, windows-2022, macos-12]
@@ -113,16 +112,16 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup variables
-        id: vars
         run: |
           echo CIBW=`echo $JSONSTR | jq ".os_map[\"${{ matrix.os }}\"].tag as \\\$tag| .pyvers[\"${{ github.event_name }}\"] \
            | [.[] | capture(\"(?<maj>[0-9]+)\\\\\\.(?<min>[0-9]+)\") | \"cp\(.maj)\(.min)-\(\\\$tag)\"] | @csv" | sed s/[\\\\\"]//g` >> $GITHUB_ENV
-          echo PYVERS=`echo $a | jq ".pyvers[\"${{ github.event_name }}\"] | @sh"` >> $GITHUB_ENV
-          echo MLVER=`echo $JSONSTR | jq ".os_map[\"${{ matrix.os }}\"].mlver"` >> $GITHUB_ENV
-          echo MLPREFIX=`echo $JSONSTR | jq ".os_map[\"${{ matrix.os }}\"].mlprefix"` >> $GITHUB_ENV
+          echo PYVERS=`echo $JSONSTR | jq ".pyvers[\"${{ github.event_name }}\"] | @sh"` >> $GITHUB_ENV
+          export MLVER=`echo $JSONSTR | jq ".os_map[\"${{ matrix.os }}\"].mlver" | sed s/\"//g`
+          echo MLVER=$MLVER >> $GITHUB_ENV
+          echo MLPREFIX=`echo $JSONSTR | jq ".os_map[\"${{ matrix.os }}\"].mlprefix" | sed s/\"//g` >> $GITHUB_ENV
           echo "HOSTDIRECTORY=`pwd`" >> $GITHUB_ENV
-          if which matlab; then
-            echo "MATLABEXECUTABLE=`which matlab`" >> $GITHUB_ENV;
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            echo "MATLABEXECUTABLE=/usr/local/MATLAB/$MLVER/bin/matlab" >> $GITHUB_ENV;
           else
             echo "MATLABEXECUTABLE=`pwd`/mcr/bin/matlab" >> $GITHUB_ENV;
           fi
@@ -140,7 +139,7 @@ jobs:
           fail-on-cache-miss: true
       - uses: actions/cache/restore@v3
         with:
-          path: gist
+          path: gists
           key: ${{ runner.os }}-gists
           fail-on-cache-miss: true
       - uses: pypa/cibuildwheel@v2.12.0
@@ -157,21 +156,20 @@ jobs:
           cache-downloads: true
       - name: Install wheels and run test
         run: |
-          cp -f gist/* test/
-          for pyver in `echo $PYVER | sed s/[\"\']//g`; do
-            $MAMBA_EXE create -n py$pyver python=$pyver numpy six
-            if [ "$RUNNER_OS" == "Windows" ]; then
-              # On Windows, micromamba only sets up for powershell
-              eval "$($MAMBA_EXE shell activate py$pyver)"
-            fi
+          # set -e makes sure the script fails if any command in the loop fails
+          set -e
+          cp -f gists/* test/
+          for pyver in $(echo $PYVERS | sed s/[\"\']//g); do
+            $MAMBA_EXE create -n py$pyver -c conda-forge python=$pyver numpy six
+            eval "$($MAMBA_EXE shell activate py$pyver)"
             python -m pip install wheelhouse/*cp$(echo $pyver | sed s/\\.//)*
             cd test
             python run_test.py
             cd ..
           done
-      - name: Setup tmate
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
+      #- name: Setup tmate
+      #  if: ${{ failure() }}
+      #  uses: mxschmitt/action-tmate@v3
       - uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.os }}_artifacts.zip
