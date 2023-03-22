@@ -169,4 +169,5 @@ else:
             pp = outdir.split('/')[1:]
             outdir = pp[0] + ':\\' + '\\'.join(pp[1:])
         for mex in glob.glob('**/call_python*.mex*', recursive=True):
-            shutil.copy(mex, outdir)
+            if not os.path.exists(os.path.join(outdir, mex)):
+                shutil.copy(mex, outdir)
