@@ -10,6 +10,7 @@ def main():
     parser.add_argument('--set', action='store_true', help='Uploads ctf files to store')
     parser.add_argument('--token', action='store', help='Github token to access gist')
     parser.add_argument('--create', action='store_true', help='Creates and upload gist')
+    parser.add_argument('--dir', action='store', help='Directory to store or get files')
     args = parser.parse_args()
 
     token = args.token
@@ -19,13 +20,14 @@ def main():
     if not args.get and not args.set and not args.create:
         raise RuntimeError('One of the options --set, --get or --create must be specified')
 
-    if args.get:
-        get_gist(token)
-    elif args.set:
-        set_gist(token)
-    else:
-        create_gist(token)
+    inoutdir = 'test' if args.dir is None else args.dir
 
+    if args.get:
+        get_gist(token, inoutdir)
+    elif args.set:
+        set_gist(token, inoutdir)
+    else:
+        create_gist(token, inoutdir)
 
 def list_gist(token):
     assert token is not None, 'Need token for this action'
@@ -35,7 +37,7 @@ def list_gist(token):
     resp = json.loads(response.text)
 
 
-def get_gist(token=None):
+def get_gist(token=None, outputdir='test'):
     headers={'Accept': 'application/vnd.github+json'}
     if token is not None:
         headers = {'Authorization': 'Bearer ' + token, **headers}
@@ -53,16 +55,16 @@ def get_gist(token=None):
                 content = response.text
             else:
                 content = jsout['files'][fname]['content']
-            path = os.path.join(os.path.dirname(__file__), 'test', fname)
+            path = os.path.join(os.path.dirname(__file__), outputdir, fname)
             with open(path, 'wb') as f:
                 f.write(base64.b85decode(content))
 
 
-def set_gist(token):
+def set_gist(token, indir='test'):
     assert token is not None, 'Need token for this action'
     headers={'Accept': 'application/vnd.github+json', 'Authorization': 'Bearer ' + token}
     for idx, gid in enumerate(GIST_ID):
-        path = os.path.join(os.path.dirname(__file__), 'test', FILES[idx])
+        path = os.path.join(os.path.dirname(__file__), indir, FILES[idx])
         with open(path, 'rb') as f:
             contents = base64.b85encode(f.read()).decode('ascii')
         response = requests.patch(
@@ -73,12 +75,12 @@ def set_gist(token):
             raise RuntimeError('Could not update gist')
 
 
-def create_gist(token):
+def create_gist(token, indir='test'):
     assert token is not None, 'Need token for this action'
     headers = {'Accept': 'application/vnd.github+json', 'Authorization': 'Bearer ' + token}
     data0 = {'description': 'b85 encoded ctf for testing libpymcr', 'public': True}
     for ctf in FILES:
-        path = os.path.join(os.path.dirname(__file__), 'test', ctf)
+        path = os.path.join(os.path.dirname(__file__), indir, ctf)
         with open(path, 'rb') as f:
             contents = base64.b85encode(f.read()).decode('ascii')
         response = requests.post(
