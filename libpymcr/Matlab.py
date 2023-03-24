@@ -4,7 +4,6 @@ import shutil
 import zipfile
 from .MatlabProxyObject import wrap, unwrap
 from .utils import get_version_from_ctf, checkPath, get_nlhs
-from . import _libpymcr
 
 # Store the Matlab engine as a module global wrapped inside a class
 # When the global ref is deleted (e.g. when Python exits) the __del__ method is called
@@ -26,6 +25,7 @@ class _MatlabInstance(object):
             options = ["-nojvm" if system() == 'Darwin' else ""]
         os.environ["LIBPYMCR_MATLAB_ROOT"] = matlab_dir
         self.ctf = ctffile
+        from . import _libpymcr
         self.interface = _libpymcr.matlab(ctffile, matlab_dir, options)
         print('Interface opened')
 
