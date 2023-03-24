@@ -58,8 +58,7 @@ jobs:
     name: Create Matlab cache, ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04]
-        #os: [ubuntu-22.04, windows-2022, macos-12]
+        os: [ubuntu-22.04, windows-2022, macos-12]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -110,7 +109,7 @@ jobs:
     # OS strategy matrix must match key in JSONSTR.os_map above
     strategy:
       matrix:
-        os: [ubuntu-22.04]
+        os: [ubuntu-22.04, windows-2022, macos-12]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -128,7 +127,7 @@ jobs:
           fi
           echo CIBW=`echo $JSONSTR | jq ".os_map[\"${{ matrix.os }}\"].tag as \\\$tag| .pyvers[\"$EVENTTYPE\"] | [.[] | \
             capture(\"(?<maj>[0-9]+)\\\\\\.(?<min>[0-9]+)\") | \"cp\(.maj)\(.min)-\(\\\$tag)\"] | @sh" | sed s/[\"\']//g` >> $GITHUB_ENV
-          echo PYVERS=`echo $JSONSTR | jq ".pyvers[\"${{ github.event_name }}\"] | @sh"` >> $GITHUB_ENV
+          echo PYVERS=`echo $JSONSTR | jq ".pyvers[\"$EVENTTYPE\"] | @sh"` >> $GITHUB_ENV
           export MLVER=`echo $JSONSTR | jq ".os_map[\"${{ matrix.os }}\"].mlver" | sed s/\"//g`
           echo MLVER=$MLVER >> $GITHUB_ENV
           echo MLPREFIX=`echo $JSONSTR | jq ".os_map[\"${{ matrix.os }}\"].mlprefix" | sed s/\"//g` >> $GITHUB_ENV
