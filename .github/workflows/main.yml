@@ -27,8 +27,8 @@ env:
   JSONSTR: |
     {
       "pyvers": {
-        "push": ["3.8", "3.9"],
-        "pull_request": ["3.8", "3.9"],
+        "push": ["3.8"],
+        "pull_request": ["3.8"],
         "release": ["3.7", "3.8", "3.9", "3.10", "3.11"],
         "workflow_dispatch": ["WORKFLOW_PYVER"]
       },
@@ -58,7 +58,8 @@ jobs:
     name: Create Matlab cache, ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, windows-2022, macos-12]
+        os: [ubuntu-22.04]
+        #os: [ubuntu-22.04, windows-2022, macos-12]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -109,7 +110,7 @@ jobs:
     # OS strategy matrix must match key in JSONSTR.os_map above
     strategy:
       matrix:
-        os: [ubuntu-22.04, windows-2022, macos-12]
+        os: [ubuntu-22.04]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -121,8 +122,8 @@ jobs:
             export JSONSTR=$(echo $JSONSTR | sed s/WORKFLOW_PYVER/${{ github.event.inputs.py_version }}/)
           fi
           export EVENTTYPE=${{ github.event_name }}
-          if [ "${{ github.event_name }}" == "pull_request" ] && [ "${{ github.event.pull_request.title }}" == *"RELEASE"* ]]; then
-            python3 release --version_check
+          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "${{ github.event.pull_request.title }}" == *"RELEASE"* ]]; then
+            python3 release.py --version_check
             export EVENTTYPE=release
           fi
           echo CIBW=`echo $JSONSTR | jq ".os_map[\"${{ matrix.os }}\"].tag as \\\$tag| .pyvers[\"$EVENTTYPE\"] | [.[] | \

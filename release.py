@@ -17,6 +17,7 @@ def main():
 
     if args.version_check:
         file_ver = _version_check()
+        print(f'Version string "{file_ver}" in files match')
 
     token = args.token
     if token is None and 'GITHUB_TOKEN' in os.environ:
@@ -46,7 +47,7 @@ def release_github(test=True, create_tag=False, token=None):
     desc = re.search('# \[v[0-9\.]*\]\(http.*?\)\n(.*?)# \[v[0-9\.]*\]', changelog,
                      re.DOTALL | re.MULTILINE).groups()[0].strip()
     payload = {
-        "tag_name": git_ver
+        "tag_name": git_ver,
         "target_commitish": "main",
         "name": git_ver,
         "body": desc,
@@ -56,7 +57,7 @@ def release_github(test=True, create_tag=False, token=None):
     if test:
         print(payload)
     else:
-        upload_url = release_exists(git_ver, retval='upload_url', token)
+        upload_url = release_exists(git_ver, retval='upload_url', token=token)
         if not upload_url:
             upload_url = _create_gh_release(payload, token)
         else:
