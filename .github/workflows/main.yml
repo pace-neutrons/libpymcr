@@ -9,6 +9,10 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      py_version:
+        type: choice
+        options: ["3.7", "3.8", "3.9", "3.10", "3.11"]
 
 concurrency :
   group: ${{ github.workflow }}-${{ github.ref == 'refs/head/main' && github.run_number || github.ref }}
@@ -26,7 +30,7 @@ env:
         "push": ["3.8"],
         "pull_request": ["3.8"],
         "release": ["3.7", "3.8", "3.9", "3.10", "3.11"],
-        "workflow_dispatch": ["3.8"]
+        "workflow_dispatch": ["WORKFLOW_PYVER"]
       },
       "os_map": {
         "ubuntu-22.04": {
@@ -113,9 +117,17 @@ jobs:
           fetch-depth: 0
       - name: Setup variables
         run: |
-          echo CIBW=`echo $JSONSTR | jq ".os_map[\"${{ matrix.os }}\"].tag as \\\$tag| .pyvers[\"${{ github.event_name }}\"] \
-           | [.[] | capture(\"(?<maj>[0-9]+)\\\\\\.(?<min>[0-9]+)\") | \"cp\(.maj)\(.min)-\(\\\$tag)\"] | @csv" | sed s/[\\\\\"]//g` >> $GITHUB_ENV
-          echo PYVERS=`echo $JSONSTR | jq ".pyvers[\"${{ github.event_name }}\"] | @sh"` >> $GITHUB_ENV
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            export JSONSTR=$(echo $JSONSTR | sed s/WORKFLOW_PYVER/${{ github.event.inputs.py_version }}/)
+          fi
+          export EVENTTYPE=${{ github.event_name }}
+          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "${{ github.event.pull_request.title }}" == *"RELEASE"* ]]; then
+            python3 release.py --version_check
+            export EVENTTYPE=release
+          fi
+          echo CIBW=`echo $JSONSTR | jq ".os_map[\"${{ matrix.os }}\"].tag as \\\$tag| .pyvers[\"$EVENTTYPE\"] | [.[] | \
+            capture(\"(?<maj>[0-9]+)\\\\\\.(?<min>[0-9]+)\") | \"cp\(.maj)\(.min)-\(\\\$tag)\"] | @sh" | sed s/[\"\']//g` >> $GITHUB_ENV
+          echo PYVERS=`echo $JSONSTR | jq ".pyvers[\"$EVENTTYPE\"] | @sh"` >> $GITHUB_ENV
           export MLVER=`echo $JSONSTR | jq ".os_map[\"${{ matrix.os }}\"].mlver" | sed s/\"//g`
           echo MLVER=$MLVER >> $GITHUB_ENV
           echo MLPREFIX=`echo $JSONSTR | jq ".os_map[\"${{ matrix.os }}\"].mlprefix" | sed s/\"//g` >> $GITHUB_ENV
@@ -167,6 +179,11 @@ jobs:
             python run_test.py
             cd ..
           done
+      - name: Upload release wheels
+        if: ${{ github.event_name == 'release' }}
+        run: |
+          pip3 install requests
+          python3 release.py --notest --github --token=${{ secrets.GH_GIST_TOKEN }}
       #- name: Setup tmate
       #  if: ${{ failure() }}
       #  uses: mxschmitt/action-tmate@v3
