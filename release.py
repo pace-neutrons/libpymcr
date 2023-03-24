@@ -112,9 +112,7 @@ def _create_gh_release(payload):
 
 def _upload_assets(upload_url):
     wheelpaths = None
-    if os.path.exists('dist'):
-        wheelpaths = [os.path.join('dist', ff) for ff in os.listdir('dist')]
-    elif os.path.exists('wheelhouse'):
+    if os.path.exists('wheelhouse'):
         wheelpaths = [os.path.join('wheelhouse', ff) for ff in os.listdir('wheelhouse')]
     if wheelpaths is not None:
         for wheelpath in wheelpaths:

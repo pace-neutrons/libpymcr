@@ -5,7 +5,7 @@ but some actions and triggering a release needs to be done manually by the devel
 
 To create a release.
 
-1. Create a branch and edit the `CHANGELOG.md` and `CITATION.cff` files to update it with a new tag.
+1. Create a branch and edit the `CHANGELOG.md` and `CITATION.cff` files to update it with a new version number.
 2. Create a new PR from the branch. The PR must have `RELEASE` in the title.
 3. This will trigger a build with multiple versions of python.
 4. Review the branch, check that all tests for all python versions pass and if so merge.
