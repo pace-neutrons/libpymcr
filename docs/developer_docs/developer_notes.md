@@ -97,12 +97,18 @@ Note that:
 * Numpy `np.array` and Matlab `array` have their underlying data wrapped in the output format.
     + Numpy arrays support views where the data is not owned by the numpy object. `libpymcr` implements the
       wrapping as a view with the owner being the (Python-opaque) Matlab `array` object.
+    + As such all conversions from Matlab-to-Python will be wrapped with no data copies.
     + For the reverse (Python-to-Matlab), the Matlab API does not support views, so a hack is used 
       as detailed below.
     + In addition, Matlab has limited support for non-contiguous arrays, so only contiguous arrays are
       wrapped. Non-contiguous numpy arrays are instead copied into a new Matlab `array`.
-    + Finally, whilst `libpymcr` wraps C-contiguous (row-major) arrays, many internal Matlab numeric
-      functions only work with F-contiguous (column-major) arrays so Matlab will force a data transpose copy
+    + Another restriction is that Matlab does not support general strides like numpy
+      ([details here](https://numpy.org/doc/stable/reference/arrays.ndarray.html#internal-memory-layout-of-an-ndarray))
+      but rather only the specific stride patterns corresponding to numpy's `C-contiguous` or `F-contigous`.
+      This only applies for higher dimensional (D>2) arrays, but in cases where the strides are not
+      in either of these formats `libpymcr` will copy the data when converting from Python-to-Matlab.
+    + Finally, whilst `libpymcr` will wrap C-contiguous (row-major) arrays, many internal Matlab numeric
+      functions only work with F-contiguous (column-major) arrays so Matlab may force a data transpose copy
 
 
 ## Mac OS notes

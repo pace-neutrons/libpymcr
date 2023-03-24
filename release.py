@@ -43,7 +43,7 @@ def release_github(test=True):
         "target_commitish": "main",
         "name": pace_ver,
         "body": desc,
-        "draft": True,
+        "draft": False,
         "prerelease": True
     }
     if test:
@@ -115,7 +115,7 @@ def _upload_assets(upload_url):
     if os.path.exists('dist'):
         wheelpaths = [os.path.join('dist', ff) for ff in os.listdir('dist')]
     elif os.path.exists('wheelhouse'):
-        wheelpaths = [os.path.join('wheelhouse', ff) for ff in os.listdir('wheelhouse') if 'manylinux' in ff]
+        wheelpaths = [os.path.join('wheelhouse', ff) for ff in os.listdir('wheelhouse')]
     if wheelpaths is not None:
         for wheelpath in wheelpaths:
             wheelfile = os.path.basename(wheelpath)
