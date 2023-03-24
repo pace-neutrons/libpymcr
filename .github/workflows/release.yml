@@ -19,4 +19,4 @@ jobs:
         shell: bash -l {0}
         run: |
           pip3 install requests
-          python3 release.py --notest --github --token=${{ secrets.GH_GIST_TOKEN }}
+          python3 release.py --notest --github --create_tag --token=${{ secrets.GH_GIST_TOKEN }}

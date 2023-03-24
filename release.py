@@ -16,7 +16,7 @@ def main():
     args = parser.parse_args()
 
     if args.version_check:
-        file_ver = _version_check()
+        file_ver, _ = _version_check()
         print(f'Version string "{file_ver}" in files match')
 
     token = args.token
@@ -34,7 +34,7 @@ def main():
 def release_github(test=True, create_tag=False, token=None):
     from libpymcr import __version__
     git_ver = 'v' + __version__
-    file_ver = _version_check()
+    file_ver, changelog = _version_check()
     if '+' in git_ver and create_tag:
         # Not in a release, create a new tag
         rv = subprocess.run(['git', 'tag', file_ver], capture_output=True)
@@ -133,7 +133,7 @@ def _version_check():
     cit_ver = 'v' + re.findall('\nversion: "(.*)"', citation)[0]
     if cl_ver != cit_ver:
         raise Exception(f'version mismatch! CHANGELOG.md: {cl_ver}; CITATION.cff: {cit_ver}')
-    return cl_ver
+    return cl_ver, changelog
 
 
 def _create_gh_release(payload, token):

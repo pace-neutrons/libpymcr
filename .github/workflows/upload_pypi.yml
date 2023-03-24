@@ -9,14 +9,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
+      with:
+        fetch-depth: 0
     - name: Download wheels
       run: |
         python3 -m pip install twine requests
         python3 release.py --pypi --token=${{ secrets.GH_GIST_TOKEN }}
-
     - name: Publish wheels to PyPI
       env:
         TWINE_USERNAME: __token__

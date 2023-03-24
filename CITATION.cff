@@ -1,6 +1,6 @@
 cff-version: "1.1.0"
-message: "If you have used PACE in your research, please cite it as below"
-abstract: "LibPy"
+message: "If you have used libpymcr in your research, please cite it as below"
+abstract: "libpymcr is a Python module for loading compiled Matlab ctf archives and running functions in it"
 authors:
   - family-names: "Fair"
     given-names: "Rebecca L."
@@ -11,9 +11,12 @@ authors:
   - family-names: "Ward"
     given-names: "Simon"
     orcid: "https://orcid.org/0000-0001-7127-5763"
+  - family-names: "Tucker"
+    given-names: "Gregory S."
+    orcid: https://orcid.org/0000-0002-2787-8054
 title: "libpymcr"
-version: "0.2.0"
-date-released: "2023-01-31"
+version: "0.1.1"
+date-released: "2023-03-24"
 license: "GPL-3.0-only"
 repository: "https://github.com/pace-neutrons/libpymcr"
 url: "https://github.com/pace-neutrons/libpymcr"
