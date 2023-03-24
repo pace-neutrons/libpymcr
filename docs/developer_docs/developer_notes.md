@@ -70,18 +70,18 @@ to allow the "opaque" Matlab objects to be inspected from Python.
 The core of the module is the `libpymcr::pymat_converter` [class](../../src/type_converter.hpp)
 which converts data from Python to Matlab and vice versa, according to:
 
-| Python to    | Matlab   || Matlab to    | Python     |
---------------------------------------------------------
-| `list`       | `cell`   || `cell`       | `list`     |
-| `tuple`      | `cell`   ||              |            |
-| `dict`       | `struct` || `struct`     | `dict`     |
-| `str`        | `char`   || `char`       | `str`      |
-|              |          || `string`     | `str`      |
-| callable     | `handle` ||              |            |
-|              |          || `object`     | opaque     |
-| `None`       | `[]`     ||              |            |
-|numeric scalar| `double` ||numeric scalar| `np.array` |
-| `np.array`   | `array`  || `array`      | `np.array` |
+| Python      |to| Matlab  ||  Matlab     |to| Python    |
+| ------------ || -------- || ------------ || ---------- |
+| `list`       || `cell`   || `cell`       || `list`     |
+| `tuple`      || `cell`   ||              ||            |
+| `dict`       || `struct` || `struct`     || `dict`     |
+| `str`        || `char`   || `char`       || `str`      |
+|              ||          || `string`     || `str`      |
+| callable     || `handle` ||              ||            |
+|              ||          || `object`     || opaque     |
+| `None`       || `[]`     ||              ||            |
+|numeric scalar|| `double` ||numeric scalar|| `np.array` |
+| `np.array`   || `array`  || `array`      || `np.array` |
 
 Note that:
 
