@@ -10,7 +10,7 @@ from pathlib import Path
 def get_nlhs():
     caller = traceback.extract_stack()[-3].line
     retvals = (0, '')
-    if '=' in caller:
+    if '=' in caller and '(' in caller and caller.index('=') < caller.index('('):
         return len(caller.split('=')[0].split(','))
     else:
         return 1
