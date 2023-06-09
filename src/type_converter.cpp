@@ -222,7 +222,7 @@ PyObject* pymat_converter::to_python(matlab::data::Array input) {
 // -------------------------------------------------------------------------------------------------------
 
 template <typename T> Array pymat_converter::raw_to_matlab(char *raw, size_t sz, std::vector<size_t> dims,
-                                                           ssize_t *strides, int f_or_c_continuous, 
+                                                           ssize_t *strides, int f_or_c_continuous,
                                                            matlab::data::ArrayFactory &factory, PyObject* obj) {
     if (f_or_c_continuous == 0) {
         // Slower copy methods - follow data strides for non-contiguous arrays
@@ -414,7 +414,70 @@ StructArray pymat_converter::python_dict_to_matlab(PyObject *result, matlab::dat
     return retval;
 }
 
+int _listtuple_array_data(PyObject *result, std::vector<double> &data, std::vector<size_t> &dims, bool is_first=false) {
+    size_t obj_size = PyTuple_Check(result) ? (size_t)PyTuple_Size(result) : (size_t)PyList_Size(result);
+    bool is_tuple = false;
+    int dim, dim0;
+    if (is_first) {
+        dims.push_back(obj_size); }
+    for(size_t ii=0; ii<obj_size; ii++) {
+        PyObject *item = PyTuple_Check(result) ? PyTuple_GetItem(result, ii) : PyList_GetItem(result, ii);
+        if (PyTuple_Check(item) || PyList_Check(item)) {
+            if (!is_tuple) {
+                // We only want to add dims for the very first iteration of each recursive call.
+                // The first call (from listtuple_to_cell) will set is_first to true
+                // Subsequent recursive calls will set this to true only on first iteration and
+                // also when it in turn has been called by the first iteration of the outer loop.
+                if ((dim0 = _listtuple_array_data(item, data, dims, (ii==0) & is_first)) < 0) {
+                    return -1; }
+            } else {
+                if ((dim = _listtuple_array_data(item, data, dims)) < 0 || dim != dim0) {
+                    return -1; }
+            }
+            is_tuple = true;
+        } else {
+            if (is_tuple) {
+                return -1; } // If one item is a tuple, all must be tuple of same length
+            if (PyLong_Check(item)) {
+                data.push_back(PyLong_AsDouble(item));
+            } else if (PyFloat_Check(item)) {
+                data.push_back(PyFloat_AsDouble(item));
+            } else {
+                return -1;
+            }
+        }
+    }
+    return (int)obj_size;
+}
+
+std::vector<double> _to_colmajor(std::vector<double> inp, std::vector<size_t> dims) {
+    std::vector<double> out(inp.size(), 0.);
+    std::vector<size_t> strides = {1};
+    size_t sz = dims.size();
+    for (size_t i=1; i<sz; i++)
+        strides.push_back(strides[i-1] * dims[i-1]);
+    for (size_t i=0; i < inp.size(); i++) {
+        size_t f_idx = 0, val = i;
+        for (size_t d=sz; d>0; d--) {
+            // Adapted from np code unravel_index_loop() and ravel_multi_index() in compiled_base.c
+            size_t tmp = val / dims[d-1];  // Uses a local to enable single-divide optimisation
+            size_t coord = val % dims[d-1];
+            val = tmp;
+            f_idx += coord * strides[d-1];
+        }
+        out[f_idx] = inp[i];
+    }
+    return out;
+}
+
 Array pymat_converter::listtuple_to_cell(PyObject *result, matlab::data::ArrayFactory &factory) {
+    // Try to see if we have a nested list/tuple of numeric types: construct a Matlab N-D array
+    std::vector<size_t> arr_dim;
+    std::vector<double> arr_data;
+    if (_listtuple_array_data(result, arr_data, arr_dim, true) > 0) {
+        std::vector<double> arr = _to_colmajor(arr_data, arr_dim);  // Convert from row- to column-major (req by Matlab)
+        return factory.createArray<typename std::vector<double>::iterator, double>(arr_dim, arr.begin(), arr.end());
+    }
     size_t obj_size = PyTuple_Check(result) ? (size_t)PyTuple_Size(result) : (size_t)PyList_Size(result);
     CellArray cell_out = factory.createCellArray({1, obj_size});
     std::vector<PyObject*> objs;

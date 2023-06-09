@@ -1,3 +1,23 @@
+# [v0.1.2](https://github.com/pace-neutrons/libpymcr/compare/v0.1.1...v0.1.2)
+
+## Bugfixes for PySpinW
+
+A set of bugfixes and a new feature for the PySpinW beta
+
+* Fix error when caller is `a.bc(de, f=gh)`
+* Fix typo in nested dot indexing call
+* Add new automatic conversion of nested lists into N-D matlab arrays
+
+E.g.
+
+
+```
+m.eig([[1,2,3], [4,5,6], [7,8,9]])
+```
+
+now correctly converts the nested list into a 3x3 matrix and the `eig` function no longer gives an error.
+
+
 # [v0.1.1](https://github.com/pace-neutrons/libpymcr/compare/v0.1.0...v0.1.1)
 
 ## Initial public beta of libpymcr

@@ -15,7 +15,7 @@ authors:
     given-names: "Gregory S."
     orcid: https://orcid.org/0000-0002-2787-8054
 title: "libpymcr"
-version: "0.1.1"
+version: "0.1.2"
 date-released: "2023-03-24"
 license: "GPL-3.0-only"
 repository: "https://github.com/pace-neutrons/libpymcr"
