@@ -42,7 +42,7 @@ class NamespaceWrapper(object):
         self._name = name
 
     def __getattr__(self, name):
-        return NamespaceWrapper(self._matlab, f'{self._name}.{name}')
+        return NamespaceWrapper(self._interface, f'{self._name}.{name}')
 
     def __call__(self, *args, **kwargs):
         nargout = kwargs.pop('nargout') if 'nargout' in kwargs.keys() else None

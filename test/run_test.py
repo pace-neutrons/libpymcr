@@ -70,6 +70,27 @@ class PacePythonTest(unittest.TestCase):
         #res_mat_f = self.m.mtimes(self.m.reshape(n1, 3, 9),  self.m.reshape(n2, 9, 3))
         #self.assertTrue(np.allclose(res_np, res_mat_f))
 
+    def test_nested_list_to_array(self):
+        # Tests that nested lists/tuples are converted correctly to Matlab arrays
+        f_iden = self.m.str2func('@(x) x')
+        m9 = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+        c9 = self.m.feval(f_iden, m9)
+        # Numeric arrays always converted to double in Matlab (libpymcr "feature")
+        self.assertTrue(np.allclose(c9, np.array(m9, dtype=np.double)))
+        # Checks N-D arrays correctly converted
+        mm = np.random.rand(2,3,4)
+        cm = self.m.feval(f_iden, mm)
+        self.assertTrue(np.allclose(mm, cm))
+        # Check that if the shape is not consistent that a list (cell) is returned
+        mc = [[1,2,3], [4,5,6], 7]
+        cc = self.m.feval(f_iden, mc)
+        self.assertIsInstance(cc, list)
+        self.assertIs(len(cc), 3)
+        # libpymcr defaults to producing *column* vectors
+        self.assertTrue(np.allclose(cc[0], np.array([[1],[2],[3]], dtype=np.double)))
+        self.assertTrue(np.allclose(cc[1], np.array([[4],[5],[6]], dtype=np.double)))
+        self.assertEqual(cc[2], 7)
+
 
 if __name__ == '__main__':
     unittest.main()
