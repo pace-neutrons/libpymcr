@@ -332,6 +332,9 @@ matlab::data::Array pymat_converter::python_array_to_matlab(PyObject *result, ma
         dims.push_back(arr->dimensions[id]);
         numel = numel * dims[id];
     }
+    // If we have 1D vector, force it to be a row vector to be consistent with Matlab
+    if (dims.size() == 1) {
+        dims.insert(dims.begin(), 1); }
     int fc_cont = 0;
     if (py::detail::check_flags(result, py::detail::npy_api::NPY_ARRAY_F_CONTIGUOUS_))
         fc_cont = -1;
@@ -475,8 +478,11 @@ Array pymat_converter::listtuple_to_cell(PyObject *result, matlab::data::ArrayFa
     std::vector<size_t> arr_dim;
     std::vector<double> arr_data;
     if (_listtuple_array_data(result, arr_data, arr_dim, true) > 0) {
-        std::vector<double> arr = _to_colmajor(arr_data, arr_dim);  // Convert from row- to column-major (req by Matlab)
-        return factory.createArray<typename std::vector<double>::iterator, double>(arr_dim, arr.begin(), arr.end());
+        if (arr_dim.size() > 1) {
+            arr_data = _to_colmajor(arr_data, arr_dim);  // Convert to column-major (req by Matlab)
+        } else {
+            arr_dim.insert(arr_dim.begin(), 1); } // Force row vector for consistency ([1 2 3] is row vector in ml)
+        return factory.createArray<typename std::vector<double>::iterator, double>(arr_dim, arr_data.begin(), arr_data.end());
     }
     size_t obj_size = PyTuple_Check(result) ? (size_t)PyTuple_Size(result) : (size_t)PyList_Size(result);
     CellArray cell_out = factory.createCellArray({1, obj_size});
