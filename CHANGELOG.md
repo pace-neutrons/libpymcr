@@ -1,3 +1,10 @@
+# [v0.1.3](https://github.com/pace-neutrons/libpymcr/compare/v0.1.2...v0.1.3)
+
+## Bugfixes for PySpinW
+
+Further bugfixes for PySpinW - now automatically converts unnested lists and numpy vectors to *row-vectors* in Matlab to be consistent with Matlab convention (previously had converted to column vectors using Fortran convention).
+
+
 # [v0.1.2](https://github.com/pace-neutrons/libpymcr/compare/v0.1.1...v0.1.2)
 
 ## Bugfixes for PySpinW

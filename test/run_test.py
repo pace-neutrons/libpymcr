@@ -86,9 +86,8 @@ class PacePythonTest(unittest.TestCase):
         cc = self.m.feval(f_iden, mc)
         self.assertIsInstance(cc, list)
         self.assertIs(len(cc), 3)
-        # libpymcr defaults to producing *column* vectors
-        self.assertTrue(np.allclose(cc[0], np.array([[1],[2],[3]], dtype=np.double)))
-        self.assertTrue(np.allclose(cc[1], np.array([[4],[5],[6]], dtype=np.double)))
+        self.assertTrue(np.allclose(cc[0], np.array([1, 2, 3], dtype=np.double)))
+        self.assertTrue(np.allclose(cc[1], np.array([4, 5, 6], dtype=np.double)))
         self.assertEqual(cc[2], 7)
 
 
