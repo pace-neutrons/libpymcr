@@ -9,6 +9,8 @@ from .utils import get_version_from_ctf, checkPath, get_nlhs
 # When the global ref is deleted (e.g. when Python exits) the __del__ method is called
 # Which then gracefully shutsdown Matlab, else we get a segfault.
 _global_matlab_ref = None
+_has_registered_magic = None
+
 
 class _MatlabInstance(object):
     def __init__(self, ctffile, matlab_dir=None, options=None):
@@ -63,7 +65,7 @@ class NamespaceWrapper(object):
 
 
 class Matlab(object):
-    def __init__(self, ctffile, mlPath=None):
+    def __init__(self, ctffile=None, mlPath=None):
         """
         Create an interface to a matlab compiled python library and treat the objects in a python/matlab way instead of
         the ugly way it is done by default.
@@ -74,6 +76,8 @@ class Matlab(object):
 
         global _global_matlab_ref
         if _global_matlab_ref is None:
+            if ctffile is None:
+                raise RuntimeError('Matlab is not initialised, please provide a CTF path')
             _global_matlab_ref = _MatlabInstance(ctffile, mlPath)
         self._interface = _global_matlab_ref.interface
 
@@ -114,3 +118,36 @@ class Matlab(object):
                 except ValueError:
                     outputs = []
                 print('[{}] = {}({})'.format(','.join(outputs), ml_name, ','.join(inputs)))
+
+
+def register_ipython_magics():
+    try:
+        import IPython
+    except ImportError:
+        return None
+    else:
+        running_kernel = IPython.get_ipython()
+        # Only register these magics when running in a notebook / lab
+        # Other values seen are: 'TerminalInteractiveShell' and 'InteractiveShellEmbed'
+        if (running_kernel.__class__.__name__ != 'ZMQInteractiveShell'
+            and running_kernel.__class__.__name__ != 'SpyderShell'):
+            return None
+    global _has_registered_magic
+    _has_registered_magic = True
+    if running_kernel is None or sys.__stdout__ is None or sys.__stderr__ is None:
+        return None
+    from . import IPythonMagics
+    from traitlets import Instance
+    shell = Instance('IPython.core.interactiveshell.InteractiveShellABC', allow_none=True)
+    magics = IPythonMagics.MatlabMagics(shell, None)
+    running_kernel.register_magics(magics)
+    running_kernel.events.register('post_run_cell', IPythonMagics.showPlot)
+    # Only do redirection for Jupyter notebooks - causes errors on Spyder
+    if running_kernel == 'ZMQInteractiveShell':
+        redirect_stdout = IPythonMagics.Redirection(target='stdout')
+        running_kernel.events.register('pre_run_cell', redirect_stdout.pre)
+        running_kernel.events.register('post_run_cell', redirect_stdout.post)
+
+
+if not _has_registered_magic:
+    register_ipython_magics()
