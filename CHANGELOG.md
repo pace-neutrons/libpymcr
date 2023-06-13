@@ -1,3 +1,10 @@
+# [v0.1.4](https://github.com/pace-neutrons/libpymcr/compare/v0.1.3...v0.1.4)
+
+## Add IPython magics
+
+Add IPython magics from pace-python (to allow in-line text output and figures in Jupyter notebooks).
+
+
 # [v0.1.3](https://github.com/pace-neutrons/libpymcr/compare/v0.1.2...v0.1.3)
 
 ## Bugfixes for PySpinW
