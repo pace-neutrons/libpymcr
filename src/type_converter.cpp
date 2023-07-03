@@ -259,8 +259,8 @@ template <typename T> Array pymat_converter::raw_to_matlab(char *raw, size_t sz,
         // but (see: https://www.mathworks.com/matlabcentral/answers/514456) this causes an issue
         // when Matlab tries to delete the buffer. So we have to use a hack (see release_buffer() below)
         buffer_ptr_t<T> buf = buffer_ptr_t<T>(begin, [](void* ptr){});
-        if (m_numpy_conv_flag == NumpyConversion::COPY) {
-            // But if user specify to copy, then use the prescribed API with createBuffer()
+        if (m_numpy_conv_flag == NumpyConversion::COPY || sz < 1000) {
+            // But if user specify to copy or for small arrays, then use the prescribed API with createBuffer()
             buf = factory.createBuffer<T>(sz);
             memcpy(buf.get(), begin, sz * sizeof(T));
         }
@@ -269,7 +269,7 @@ template <typename T> Array pymat_converter::raw_to_matlab(char *raw, size_t sz,
         } else {
             rv = factory.createArrayFromBuffer(dims, std::move(buf), MemoryLayout::ROW_MAJOR);
         }
-        if (m_numpy_conv_flag == NumpyConversion::WRAP) {
+        if (m_numpy_conv_flag == NumpyConversion::WRAP && sz >= 1000) {
             // For wrapped arrays, we store a shared-data copy in a cache in this object to prevent Matlab
             // from deleting it before we are ready to release the buffer.
             if (m_mex_flag) {
