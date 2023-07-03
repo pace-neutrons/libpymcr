@@ -417,7 +417,7 @@ StructArray pymat_converter::python_dict_to_matlab(PyObject *result, matlab::dat
     return retval;
 }
 
-int _listtuple_array_data(PyObject *result, std::vector<double> &data, std::vector<size_t> &dims, bool is_first=false) {
+int _list_array_data(PyObject *result, std::vector<double> &data, std::vector<size_t> &dims, bool is_first=false) {
     size_t obj_size = PyTuple_Check(result) ? (size_t)PyTuple_Size(result) : (size_t)PyList_Size(result);
     bool is_tuple = false;
     int dim, dim0;
@@ -431,10 +431,10 @@ int _listtuple_array_data(PyObject *result, std::vector<double> &data, std::vect
                 // The first call (from listtuple_to_cell) will set is_first to true
                 // Subsequent recursive calls will set this to true only on first iteration and
                 // also when it in turn has been called by the first iteration of the outer loop.
-                if ((dim0 = _listtuple_array_data(item, data, dims, (ii==0) & is_first)) < 0) {
+                if ((dim0 = _list_array_data(item, data, dims, (ii==0) & is_first)) < 0) {
                     return -1; }
             } else {
-                if ((dim = _listtuple_array_data(item, data, dims)) < 0 || dim != dim0) {
+                if ((dim = _list_array_data(item, data, dims)) < 0 || dim != dim0) {
                     return -1; }
             }
             is_tuple = true;
@@ -477,19 +477,21 @@ Array pymat_converter::listtuple_to_cell(PyObject *result, matlab::data::ArrayFa
     // Try to see if we have a nested list/tuple of numeric types: construct a Matlab N-D array
     std::vector<size_t> arr_dim;
     std::vector<double> arr_data;
-    if (_listtuple_array_data(result, arr_data, arr_dim, true) > 0) {
+    bool is_tuple = PyTuple_Check(result);
+    if (!is_tuple && _list_array_data(result, arr_data, arr_dim, true) > 0) {
+        // Only convert nested lists to Matlab arrays, leave tuples as cells
         if (arr_dim.size() > 1) {
             arr_data = _to_colmajor(arr_data, arr_dim);  // Convert to column-major (req by Matlab)
         } else {
             arr_dim.insert(arr_dim.begin(), 1); } // Force row vector for consistency ([1 2 3] is row vector in ml)
         return factory.createArray<typename std::vector<double>::iterator, double>(arr_dim, arr_data.begin(), arr_data.end());
     }
-    size_t obj_size = PyTuple_Check(result) ? (size_t)PyTuple_Size(result) : (size_t)PyList_Size(result);
+    size_t obj_size = is_tuple ? (size_t)PyTuple_Size(result) : (size_t)PyList_Size(result);
     CellArray cell_out = factory.createCellArray({1, obj_size});
     std::vector<PyObject*> objs;
-    int typeflags = 0;
+    int typeflags = is_tuple ? MYOTHER : 0;  // Only create vector from lists not tuples
     for(size_t ii=0; ii<obj_size; ii++) {
-        PyObject *item = PyTuple_Check(result) ? PyTuple_GetItem(result, ii) : PyList_GetItem(result, ii);
+        PyObject *item = is_tuple ? PyTuple_GetItem(result, ii) : PyList_GetItem(result, ii);
         cell_out[0][ii] = python_to_matlab_single(item, factory);
         if (PyLong_Check(item)) {
             // Force conversion to double because Matlab defaults to this and many routines will error with int64
