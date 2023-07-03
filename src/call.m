@@ -113,12 +113,12 @@ function [n, undetermined] = getArgOut(name, parent)
             try
                 n = nargout(name);
             catch
-                n = 1;
+                n = 0;
                 undetermined = true;
             end
         end
     else
-        n = 1;
+        n = 0;
         undetermined = true;
     end
 end

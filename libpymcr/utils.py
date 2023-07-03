@@ -13,7 +13,7 @@ def get_nlhs():
     if '=' in caller and '(' in caller and caller.index('=') < caller.index('('):
         return len(caller.split('=')[0].split(','))
     else:
-        return 1
+        return 0
 
 
 def get_version_from_ctf(ctffile):

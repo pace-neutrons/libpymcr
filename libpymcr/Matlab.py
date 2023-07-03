@@ -52,9 +52,9 @@ class NamespaceWrapper(object):
         if nargout is None:
             mnargout, undetermined = self._interface.call('getArgOut', self._name, nargout=2)
             if not undetermined:
-                nargout = max(min(int(mnargout), nreturn), 1)
+                nargout = min(int(mnargout), nreturn)
             else:
-                nargout = max(nreturn, 1)
+                nargout = nreturn
         args += sum(kwargs.items(), ())
         args = unwrap(args, self._interface)
         return wrap(self._interface.call(self._name, *args, nargout=nargout), self._interface)
