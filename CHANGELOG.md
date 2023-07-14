@@ -1,3 +1,14 @@
+# [v0.1.5](https://github.com/pace-neutrons/libpymcr/compare/v0.1.4...v0.1.5)
+
+## Bugfixes for PySpinW
+
+Bugfixes for PySpinW identified by users and during the RAL-India workshop.
+
+* Fix a segfault when temporary numpy arrays are re-used multiple times in definition of SpinW objects
+* Change behaviour of tuples and lists. Python tuples now always convert to Matlab cells. Nested lists will convert to Matlab numeric arrays if they are consistent in shape and contain only numbers. This allows Python `([1,2,3], [4,5,6])` to convert to Matlab `{[1 2 3] [4 5 6]}` whereas before it would have converted to Matlab `[1 2 3; 4 5 6]`. Python `[[1,2,3], [4,5,6]]` will still convert to Matlab `[1 2 3; 4 5 6]`.
+* Fix bug where Matlab commands which return zero outputs fail, e.g. `m.axis([0,1,0,1])` due to incorrectly given `nargout` in Matlab.py / call.m
+
+
 # [v0.1.4](https://github.com/pace-neutrons/libpymcr/compare/v0.1.3...v0.1.4)
 
 ## Add IPython magics

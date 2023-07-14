@@ -192,4 +192,4 @@ jobs:
           name: ${{ matrix.os }}_artifacts.zip
           path: |
             wheelhouse/*
-            *.mex*
+            **/*.mex[awmaci]*64
