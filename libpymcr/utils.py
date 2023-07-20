@@ -4,16 +4,55 @@ import glob
 import platform
 import zipfile
 import traceback
+import ast
 from pathlib import Path
 
 
-def get_nlhs():
-    caller = traceback.extract_stack()[-3].line
-    retvals = (0, '')
-    if '=' in caller and '(' in caller and caller.index('=') < caller.index('('):
-        return len(caller.split('=')[0].split(','))
+def get_nlhs(name):
+    # Tries to get the number of return values for a named (Matlab) function
+    # Assumes that it's called as a method of the `m` or Matlab() object
+
+    def get_branch_of_call(astobj, parent=[]):
+        if isinstance(astobj, ast.Call) and isinstance(astobj.func, ast.Attribute) and astobj.func.attr == name:
+            return astobj
+        for x in ast.iter_child_nodes(astobj):
+            rv = get_branch_of_call(x, parent)
+            if rv:
+                parent.append(astobj)
+                return parent
+        return False
+
+    # First gets the Python line where its called, then convert it to an abstract syntax
+    # tree and parse that to get the branch which leads to this call (in reverse order)
+    # The first element of this branch is the direct caller of this function
+    call_line = traceback.extract_stack()[-3].line
+    try:
+        ast_branch = get_branch_of_call(ast.parse(call_line))
+    except SyntaxError:
+        # Try a simpler heuristic
+        lhs = call_line.split(name)[0]
+        if '=' in lhs:
+            return len(lhs.split('=')[0].split(','))
+        elif '(' in lhs:
+            return 1
+        else:
+            return 0
     else:
-        return 0
+        caller = ast_branch[0]
+        if isinstance(caller, ast.Call):
+            return 1                              # f1(m.<func>())
+        elif isinstance(caller, ast.Assign):
+            targ = caller.targets[0]
+            if isinstance(targ, ast.Tuple):
+                return len(targ.elts)             # x, y = m.<func>()
+            elif isinstance(targ, ast.Name):
+                return 1                          # x = m.<func>()
+        elif isinstance(caller, ast.Expr):
+            return 0                              # m.<func>()
+        elif isinstance(caller, ast.Compare):
+            return 1                              # x == m.<func>()
+        else:
+            return 1
 
 
 def get_version_from_ctf(ctffile):

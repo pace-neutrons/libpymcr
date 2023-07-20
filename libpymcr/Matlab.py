@@ -48,7 +48,7 @@ class NamespaceWrapper(object):
 
     def __call__(self, *args, **kwargs):
         nargout = kwargs.pop('nargout') if 'nargout' in kwargs.keys() else None
-        nreturn = get_nlhs()
+        nreturn = get_nlhs(self._name)
         if nargout is None:
             mnargout, undetermined = self._interface.call('getArgOut', self._name, nargout=2)
             if not undetermined:

@@ -38,7 +38,7 @@ class matlab_method:
         self.method = method
 
     def __call__(self, *args, **kwargs):
-        nreturn = get_nlhs()
+        nreturn = get_nlhs(self.method)
         nargout = int(kwargs.pop('nargout') if 'nargout' in kwargs.keys() else nreturn)
         nargout = max(min(nargout, nreturn), 1)
         ifc = self.proxy.interface
