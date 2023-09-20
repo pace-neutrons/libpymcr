@@ -9,10 +9,8 @@ namespace libpymcr {
         if (PyCallable_Check(input)) {
             matlab::data::ArrayFactory factory;
             std::uintptr_t addr = reinterpret_cast<std::uintptr_t>(input);
-            std::uintptr_t conv = reinterpret_cast<std::uintptr_t>(&_converter);
-            rv = factory.createStructArray({1, 1}, std::vector<std::string>({"func_ptr", "converter"}));
-            rv[0][std::string("func_ptr")] = factory.createScalar<uint64_t>(addr);
-            rv[0][std::string("converter")] = factory.createScalar<uint64_t>(conv);
+            rv = factory.createStructArray({1, 1}, std::vector<std::string>({"libpymcr_func_ptr"}));
+            rv[0][std::string("libpymcr_func_ptr")] = factory.createScalar<uint64_t>(addr);
         } else {
             rv = _converter.to_matlab(input);
         }
