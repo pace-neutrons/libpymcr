@@ -161,7 +161,7 @@ namespace libpymcr {
         CharArray python_string_to_matlab(PyObject *result, matlab::data::ArrayFactory &factory);
         Array listtuple_to_cell(PyObject *result, matlab::data::ArrayFactory &factory);
         StructArray python_dict_to_matlab(PyObject *result, matlab::data::ArrayFactory &factory);
-        matlab::data::Array wrap_python_function(PyObject *input);
+        matlab::data::Array wrap_python_function(PyObject *input, matlab::data::ArrayFactory &factory);
         matlab::data::Array python_to_matlab_single(PyObject *input, matlab::data::ArrayFactory &factory);
     public:
         void clear_py_cache();

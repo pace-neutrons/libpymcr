@@ -73,7 +73,8 @@ class MatlabProxyObject(object):
         """
         self.__dict__['handle'] = handle
         self.__dict__['interface'] = interface
-        self.__dict__['_is_handle_class'] = self.interface.call('isa', self.handle, 'handle', nargout=1)
+        self.__dict__['_methods'] = []
+        #self.__dict__['_is_handle_class'] = self.interface.call('isa', self.handle, 'handle', nargout=1)
 
         # This cause performance slow downs for large data members and an recursion issue with
         # samples included in sqw object (each sample object is copied to all dependent header "files")
@@ -96,7 +97,9 @@ class MatlabProxyObject(object):
         Gets methods from a MATLAB object
         :return: list of method names
         """
-        return self.interface.call('methods', self.handle)
+        if not self._methods:
+            self.__dict__['_methods'] = self.interface.call('methods', self.handle)
+        return self._methods
 
     def __getattr__(self, name):
         """Retrieve a value or function from the object.
@@ -115,7 +118,7 @@ class MatlabProxyObject(object):
             except TypeError:
                 return None
         # if it's a method, wrap it in a functor
-        elif name in self.interface.call('methods', self.handle, nargout=1):
+        elif name in self._methods:
             return matlab_method(self, name)
 
     def __setattr__(self, name, value):

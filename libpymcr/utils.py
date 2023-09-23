@@ -71,7 +71,7 @@ def get_nlhs(name):
             if rv:
                 parent.append(astobj)
                 return parent
-        return False
+        raise SyntaxError('Empty syntax tree')
 
     def get_nret_from_call(caller):
         if isinstance(caller, ast.Call):

@@ -519,9 +519,13 @@ Array pymat_converter::listtuple_to_cell(PyObject *result, matlab::data::ArrayFa
     }
 }
 
-matlab::data::Array pymat_converter::wrap_python_function(PyObject *input) {
+matlab::data::Array pymat_converter::wrap_python_function(PyObject *input, matlab::data::ArrayFactory &factory) {
     // Wraps a Python function so it can be called using a mex function
-    throw std::runtime_error("Python callable conversion requires a custom entry point and mex file");
+    matlab::data::Array rv;
+    std::uintptr_t addr = reinterpret_cast<std::uintptr_t>(input);
+    rv = factory.createStructArray({1, 1}, std::vector<std::string>({"libpymcr_func_ptr"}));
+    rv[0][std::string("libpymcr_func_ptr")] = factory.createScalar<uint64_t>(addr);
+    return rv;
 }
 
 matlab::data::Array pymat_converter::python_to_matlab_single(PyObject *input, matlab::data::ArrayFactory &factory) {
@@ -548,7 +552,7 @@ matlab::data::Array pymat_converter::python_to_matlab_single(PyObject *input, ma
     } else if (input == Py_None) {
         output = factory.createArray<double>({});
     } else if (PyCallable_Check(input)) {
-        output = wrap_python_function(input);
+        output = wrap_python_function(input, factory);
     } else if (PyObject_TypeCheck(input, m_py_matlab_wrapper_t)) {
         output = mArray(reinterpret_cast<matlab_wrapper*>(input)->arr_impl_sptr);
     } else {
