@@ -47,7 +47,7 @@ end
 function out = unwrap(in_obj)
     out = in_obj;
     if isstruct(in_obj) && isfield(in_obj, 'libpymcr_func_ptr')
-        out = @(varargin) call('_call_python', [in_obj.libpymcr_func_ptr], varargin{:});
+        out = @(varargin) call('_call_python', in_obj.libpymcr_func_ptr, varargin{:});
     elseif isa(in_obj, 'containers.Map') && in_obj.isKey('wrapped_oldstyle_class')
         out = in_obj('wrapped_oldstyle_class');
     elseif iscell(in_obj)

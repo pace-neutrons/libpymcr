@@ -11,6 +11,18 @@ from .utils import get_version_from_ctf, checkPath, get_nlhs
 _global_matlab_ref = None
 _has_registered_magic = None
 
+# On Linux we need to load the BLAS/LAPACK libraries with the DEEPBIND
+# flag so it doesn't conflict with Matlab's BLAS/LAPACK.
+# This only works if users `import libpymcr` before they import scipy...
+if platform.system() == 'Linux':
+    old_flags = sys.getdlopenflags()
+    sys.setdlopenflags(os.RTLD_NOW | os.RTLD_DEEPBIND)
+    try:
+        import scipy.linalg
+    except ImportError:
+        pass
+    sys.setdlopenflags(old_flags)
+
 
 class _MatlabInstance(object):
     def __init__(self, ctffile, matlab_dir=None, options=None):

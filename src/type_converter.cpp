@@ -522,9 +522,12 @@ Array pymat_converter::listtuple_to_cell(PyObject *result, matlab::data::ArrayFa
 matlab::data::Array pymat_converter::wrap_python_function(PyObject *input, matlab::data::ArrayFactory &factory) {
     // Wraps a Python function so it can be called using a mex function
     matlab::data::Array rv;
-    std::uintptr_t addr = reinterpret_cast<std::uintptr_t>(input);
+    std::string addrstr = std::to_string(reinterpret_cast<uintptr_t>(input));
     rv = factory.createStructArray({1, 1}, std::vector<std::string>({"libpymcr_func_ptr"}));
-    rv[0][std::string("libpymcr_func_ptr")] = factory.createScalar<uint64_t>(addr);
+    py::module pyHoraceFn = py::module::import("libpymcr");
+    py::dict fnDict = pyHoraceFn.attr("_globalFunctionDict");
+    PyDict_SetItemString(fnDict.ptr(), addrstr.c_str(), input);
+    rv[0][std::string("libpymcr_func_ptr")] = factory.createCharArray(addrstr.c_str());
     return rv;
 }
 
