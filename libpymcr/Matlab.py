@@ -11,6 +11,18 @@ from .utils import get_version_from_ctf, checkPath, get_nlhs
 _global_matlab_ref = None
 _has_registered_magic = None
 
+# On Linux we need to load the BLAS/LAPACK libraries with the DEEPBIND
+# flag so it doesn't conflict with Matlab's BLAS/LAPACK.
+# This only works if users `import libpymcr` before they import scipy...
+if platform.system() == 'Linux':
+    old_flags = sys.getdlopenflags()
+    sys.setdlopenflags(os.RTLD_NOW | os.RTLD_DEEPBIND)
+    try:
+        import scipy.linalg
+    except ImportError:
+        pass
+    sys.setdlopenflags(old_flags)
+
 
 class _MatlabInstance(object):
     def __init__(self, ctffile, matlab_dir=None, options=None):
@@ -48,13 +60,13 @@ class NamespaceWrapper(object):
 
     def __call__(self, *args, **kwargs):
         nargout = kwargs.pop('nargout') if 'nargout' in kwargs.keys() else None
-        nreturn = get_nlhs()
+        nreturn = get_nlhs(self._name)
         if nargout is None:
             mnargout, undetermined = self._interface.call('getArgOut', self._name, nargout=2)
             if not undetermined:
-                nargout = max(min(int(mnargout), nreturn), 1)
+                nargout = min(int(mnargout), nreturn)
             else:
-                nargout = max(nreturn, 1)
+                nargout = nreturn
         args += sum(kwargs.items(), ())
         args = unwrap(args, self._interface)
         return wrap(self._interface.call(self._name, *args, nargout=nargout), self._interface)

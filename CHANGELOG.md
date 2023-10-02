@@ -1,3 +1,16 @@
+# [v0.1.5](https://github.com/pace-neutrons/libpymcr/compare/v0.1.4...v0.1.5)
+
+## Bugfixes for PySpinW
+
+Bugfixes for PySpinW identified by users and during the RAL-India workshop.
+
+* Fix a segfault when temporary numpy arrays are re-used multiple times in definition of SpinW objects
+* Change behaviour of tuples and lists. Python tuples now always convert to Matlab cells. Nested lists will convert to Matlab numeric arrays if they are consistent in shape and contain only numbers. This allows Python `([1,2,3], [4,5,6])` to convert to Matlab `{[1 2 3] [4 5 6]}` whereas before it would have converted to Matlab `[1 2 3; 4 5 6]`. Python `[[1,2,3], [4,5,6]]` will still convert to Matlab `[1 2 3; 4 5 6]`.
+* Fix bug where Matlab commands which return zero outputs fail, e.g. `m.axis([0,1,0,1])` due to incorrectly given `nargout` in Matlab.py / call.m
+* New `get_nlhs` algorithm to set `nargout` parameters uses `ast` to better parse cases of nested Matlab calls, like `m.eig(m.rand(3))` but this only works if the full command is on one line; and also does not work for the basic interpreter (but should work in Mantid, Jupyter and Spyder). For those cases, the old `dis` algorithm is used, updated to work with Python 3.11 but does not handle nested calls.
+* Fix bugs in `call_python`. Changed mechanism back to using a global `dict` as direct memory address was failing in some nested calls. `call_python` now creates its own instance of `type_converter` to avoid a heap memory error when using the Python initialized object from the `libpymcr` instance. Re-add `DEEPBIND` library loading for Linux Lapack/BLAS to avoid conflict with Matlab.
+
+
 # [v0.1.4](https://github.com/pace-neutrons/libpymcr/compare/v0.1.3...v0.1.4)
 
 ## Add IPython magics

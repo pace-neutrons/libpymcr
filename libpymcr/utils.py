@@ -3,17 +3,103 @@ import sys
 import glob
 import platform
 import zipfile
-import traceback
+import ast
+import inspect
+import dis
+import linecache
 from pathlib import Path
 
 
-def get_nlhs():
-    caller = traceback.extract_stack()[-3].line
-    retvals = (0, '')
-    if '=' in caller and '(' in caller and caller.index('=') < caller.index('('):
-        return len(caller.split('=')[0].split(','))
-    else:
+OPERATOR_NAMES = {
+    "CALL_FUNCTION", "CALL_FUNCTION_VAR", "CALL_FUNCTION_KW", "CALL_FUNCTION_VAR_KW", "CALL",
+    "UNARY_POSITIVE", "UNARY_NEGATIVE", "UNARY_NOT", "UNARY_CONVERT", "UNARY_INVERT", "GET_ITER",
+    "BINARY_POWER", "BINARY_MULTIPLY", "BINARY_DIVIDE", "BINARY_FLOOR_DIVIDE", "BINARY_TRUE_DIVIDE",
+    "BINARY_MODULO", "BINARY_ADD", "BINARY_SUBTRACT", "BINARY_SUBSCR", "BINARY_LSHIFT",
+    "BINARY_RSHIFT", "BINARY_AND", "BINARY_XOR", "BINARY_OR",
+    "INPLACE_POWER", "INPLACE_MULTIPLY", "INPLACE_DIVIDE", "INPLACE_TRUE_DIVIDE", "INPLACE_FLOOR_DIVIDE",
+    "INPLACE_MODULO", "INPLACE_ADD", "INPLACE_SUBTRACT", "INPLACE_LSHIFT", "INPLACE_RSHIFT",
+    "INPLACE_AND", "INPLACE_XOR", "INPLACE_OR", "COMPARE_OP", "SET_UPDATE", "BUILD_CONST_KEY_MAP",
+    "CALL_FUNCTION_EX", "LOAD_METHOD", "CALL_METHOD", "DICT_MERGE", "DICT_UPDATE", "LIST_EXTEND",
+}
+
+
+def get_nret_from_dis(frame):
+    # Tries to get the number of return values for a function
+    # Code adapted from Mantid/Framework/PythonInterface/mantid/kernel/funcinspect.py
+    ins_stack = []
+    call_fun_locs = {}
+    start_i = 0
+    start_offset = 0
+    last_i = frame.f_lasti
+    for index, ins in enumerate(dis.get_instructions(frame.f_code)):
+        ins_stack.append(ins)
+        if ins.opname in OPERATOR_NAMES:
+            call_fun_locs[start_offset] = start_i
+            start_i = index
+            start_offset = ins.offset
+    call_fun_locs[start_offset] = start_i
+    last_fun_offset = call_fun_locs[last_i]
+    last_i_name = ins_stack[last_fun_offset].opname
+    next_i_name = ins_stack[last_fun_offset + 1].opname
+    if last_i_name == 'DICT_MERGE' and next_i_name in OPERATOR_NAMES:
+        last_fun_offset += 1
+        last_i = ins_stack[last_fun_offset + 1].offset
+    res_i_name = ins_stack[last_fun_offset + 1].opname
+    if res_i_name == 'POP_TOP':
+        return 0
+    elif res_i_name == 'STORE_FAST' or res_i_name == 'STORE_NAME':
         return 1
+    elif res_i_name == 'UNPACK_SEQUENCE':
+        return ins_stack[last_fun_offset + 1].argval
+    elif res_i_name == 'LOAD_FAST' or res_i_name == 'LOAD_NAME':
+        return 1  # Dot-assigment to a member or in a multi-line call
+    elif res_i_name == 'DUP_TOP':
+        raise NotImplementedError('libpymcr does not support multiple assignment')
+    else:
+        return 1  # Probably in a multi-line call
+
+
+def get_nlhs(name):
+    # Tries to get the number of return values for a named (Matlab) function
+    # Assumes that it's called as a method of the `m` or Matlab() object
+
+    def get_branch_of_call(astobj, parent=[]):
+        if isinstance(astobj, ast.Call) and isinstance(astobj.func, ast.Attribute) and astobj.func.attr == name:
+            return astobj
+        for x in ast.iter_child_nodes(astobj):
+            rv = get_branch_of_call(x, parent)
+            if rv:
+                parent.append(astobj)
+                return parent
+        raise SyntaxError('Empty syntax tree')
+
+    def get_nret_from_call(caller):
+        if isinstance(caller, ast.Call):
+            return 1                              # f1(m.<func>())
+        elif isinstance(caller, ast.Assign):
+            targ = caller.targets[0]
+            if isinstance(targ, ast.Tuple):
+                return len(targ.elts)             # x, y = m.<func>()
+            elif isinstance(targ, ast.Name):
+                return 1                          # x = m.<func>()
+        elif isinstance(caller, ast.Expr):
+            return 0                              # m.<func>()
+        elif isinstance(caller, ast.Compare):
+            return 1                              # x == m.<func>()
+        else:
+            return 1
+
+    # First gets the Python line where its called, then convert it to an abstract syntax
+    # tree and parse that to get the branch which leads to this call (in reverse order)
+    # The first element of this branch is the direct caller of this function
+    frame = inspect.currentframe().f_back.f_back
+    call_line = linecache.getline(frame.f_code.co_filename, frame.f_lineno)
+    try:
+        ast_branch = get_branch_of_call(ast.parse(call_line))
+    except SyntaxError:
+        return get_nret_from_dis(frame)
+    else:
+        return get_nret_from_call(ast_branch[0])
 
 
 def get_version_from_ctf(ctffile):

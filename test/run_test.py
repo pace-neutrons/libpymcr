@@ -39,13 +39,13 @@ class PacePythonTest(unittest.TestCase):
         # Tests data array wrapping works
         # We do this by doing a passing a numpy array through a Matlab identity function
         f_iden = self.m.str2func('@(x) x')
-        v_np = np.random.rand(1, 5)
+        v_np = np.random.rand(1, 2000)
         v_mat = self.m.feval(f_iden, v_np)
         # v_np and v_mat should be the _same_ matrix (it's just passed straight through)
         self.assertEqual(id(v_np), id(v_mat))
         self.assertEqual(sys.getrefcount(v_np), 3)
         # Now try with a matrix
-        m_np = np.random.rand(4, 4)
+        m_np = np.random.rand(40, 40)
         m_mat = self.m.feval(f_iden, m_np)
         # Unfortunately, although Matlab accepts row-major arrays, on return from most
         # functions it force converts to column major. Thus m_mat is actually a wrapped
@@ -61,17 +61,17 @@ class PacePythonTest(unittest.TestCase):
 
     def test_numpy_nd(self):
         # Tests that ND (N>2) conversions are ok.
-        m1, m2 = (np.random.rand(3, 3, 3), np.random.rand(3, 3, 3))
+        m1, m2 = (np.random.rand(11, 11, 11), np.random.rand(11, 11, 11))
         res_np = np.einsum('ijk,jkl', m1, m2)
-        res_mat = self.m.mtimes(self.m.reshape(m1, 3, 9),  self.m.reshape(m2, 9, 3))
+        res_mat = self.m.mtimes(self.m.reshape(m1, 11, 121),  self.m.reshape(m2, 121, 11))
         self.assertTrue(np.allclose(res_np, res_mat))
         # TODO - wrapped arrays not reshaping correctly
         #n1, n2 = (np.asfortranarray(m1), np.asfortranarray(m2))
-        #res_mat_f = self.m.mtimes(self.m.reshape(n1, 3, 9),  self.m.reshape(n2, 9, 3))
+        #res_mat_f = self.m.mtimes(self.m.reshape(n1, 11, 121),  self.m.reshape(n2, 121, 11))
         #self.assertTrue(np.allclose(res_np, res_mat_f))
 
     def test_nested_list_to_array(self):
-        # Tests that nested lists/tuples are converted correctly to Matlab arrays
+        # Tests that nested lists are converted correctly to Matlab arrays
         f_iden = self.m.str2func('@(x) x')
         m9 = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
         c9 = self.m.feval(f_iden, m9)
@@ -89,6 +89,16 @@ class PacePythonTest(unittest.TestCase):
         self.assertTrue(np.allclose(cc[0], np.array([1, 2, 3], dtype=np.double)))
         self.assertTrue(np.allclose(cc[1], np.array([4, 5, 6], dtype=np.double)))
         self.assertEqual(cc[2], 7)
+
+    def test_tuple_list_to_cell(self):
+        # Tests that tuples of lists are converted to cell arrays of numeric arrays
+        f_iden = self.m.str2func('@(x) x')
+        m1 = ([1, 2, 3], [4, 5, 6])
+        c1 = self.m.feval(f_iden, m1)
+        self.assertIsInstance(c1, list)
+        self.assertEqual(len(c1), len(m1))
+        for ii in range(len(m1)):
+            self.assertTrue(np.allclose(c1[ii], np.array(m1[ii], dtype=np.double)))
 
 
 if __name__ == '__main__':

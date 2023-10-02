@@ -4,28 +4,13 @@
 
 namespace libpymcr {
 
-    matlab::data::Array matlab_env::_conv_to_matlab(PyObject* input) {
-        matlab::data::Array rv;
-        if (PyCallable_Check(input)) {
-            matlab::data::ArrayFactory factory;
-            std::uintptr_t addr = reinterpret_cast<std::uintptr_t>(input);
-            std::uintptr_t conv = reinterpret_cast<std::uintptr_t>(&_converter);
-            rv = factory.createStructArray({1, 1}, std::vector<std::string>({"func_ptr", "converter"}));
-            rv[0][std::string("func_ptr")] = factory.createScalar<uint64_t>(addr);
-            rv[0][std::string("converter")] = factory.createScalar<uint64_t>(conv);
-        } else {
-            rv = _converter.to_matlab(input);
-        }
-        return rv;
-    }
-
     size_t matlab_env::_parse_inputs(std::vector<matlab::data::Array>& m_args,
                          py::args py_args,
                          py::kwargs& py_kwargs) {
         matlab::data::ArrayFactory factory;
         size_t nargout = 1;
         for (auto item: py_args) {
-            m_args.push_back(_conv_to_matlab(item.ptr()));
+            m_args.push_back(_converter.to_matlab(item.ptr()));
         }
         for (auto item: py_kwargs) {
             std::string key(py::str(item.first));
@@ -33,7 +18,7 @@ namespace libpymcr {
                 nargout = item.second.cast<size_t>();
             } else {
                 m_args.push_back(factory.createCharArray(std::string(py::str(item.first))));
-                m_args.push_back(_conv_to_matlab(item.second.ptr()));
+                m_args.push_back(_converter.to_matlab(item.second.ptr()));
             }
         }
         return nargout;
