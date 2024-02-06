@@ -1,5 +1,7 @@
 #include "load_matlab.hpp"
 #include "libpymcr.hpp"
+#include <chrono>
+#include <ratio>
 #include <pybind11/stl.h>
 
 namespace libpymcr {
@@ -24,6 +26,15 @@ namespace libpymcr {
         return nargout;
     }
 
+    template <class T> T evalloop(matlab::cpplib::FutureResult<T> resAsync) {
+        std::chrono::duration<int, std::milli> period(1);
+        std::future_status status = resAsync.wait_for(std::chrono::duration<int, std::milli>(1));
+        while (status != std::future_status::ready) {
+            status = resAsync.wait_for(period);
+        }
+        return resAsync.get();
+    }
+
     py::object matlab_env::feval(const std::u16string &funcname, py::args args, py::kwargs& kwargs) {
         // Calls Matlab function
         const size_t nlhs = 0;
@@ -38,12 +49,12 @@ namespace libpymcr {
         py::gil_scoped_release gil_release;
         if (nargout == 1) {
             if (m_args.size() == 1) {
-                outputs.push_back(_lib->feval(funcname, m_args[0], _m_output_buf, _m_error_buf));
+                outputs.push_back(evalloop(_lib->fevalAsync(funcname, m_args[0], _m_output_buf, _m_error_buf)));
             } else {
-                outputs.push_back(_lib->feval(funcname, m_args, _m_output_buf, _m_error_buf));
+                outputs.push_back(evalloop(_lib->fevalAsync(funcname, m_args, _m_output_buf, _m_error_buf)));
             }
         } else {
-            outputs = _lib->feval(funcname, nargout, m_args, _m_output_buf, _m_error_buf);
+            outputs = evalloop(_lib->fevalAsync(funcname, nargout, m_args, _m_output_buf, _m_error_buf));
         }
         // Re-aquire the GIL
         py::gil_scoped_acquire gil_acquire;

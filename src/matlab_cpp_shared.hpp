@@ -17,6 +17,8 @@
 #define CPPSHAREDLIB_FACTORY_HPP
 #define CPPSHAREDLIB_FUTURE_HPP
 #define EXECUTION_INTERFACE_HPP
+#define VALUE_FUTURE_HPP
+#define VALUE_FUTURE_IMPL_HPP
 
 #include <vector>
 #include <cstdint>
@@ -42,6 +44,7 @@ uintptr_t cppsharedlib_feval_with_completion(const uint64_t matlabHandle,
 
 namespace {
     typedef std::basic_streambuf<char16_t> StreamBuffer;
+    typedef std::shared_ptr<StreamBuffer> SSBuffer;
 }
 
 namespace matlab {
@@ -154,40 +157,49 @@ namespace matlab {
             bool scalar,
             typename T = typename std::conditional<scalar, matlab::data::Array, std::vector<matlab::data::Array>>::type
         > 
-        T _feval(const std::u16string &function, const size_t nlhs, const std::vector<matlab::data::Array> &args,
-                 const std::shared_ptr<StreamBuffer> &output = std::shared_ptr<StreamBuffer>(),
-                 const std::shared_ptr<StreamBuffer> &error = std::shared_ptr<StreamBuffer>()) {
+        std::future<T> _feval(const std::u16string &function, const size_t nlhs, const std::vector<matlab::data::Array> &args,
+                 const SSBuffer &output = SSBuffer(), const SSBuffer &error = SSBuffer()) {
             size_t nrhs = args.size();
             matlab::data::impl::ArrayImpl** argsImpl = new matlab::data::impl::ArrayImpl*[nrhs];
             for (size_t i = 0; i < nrhs; i++) {
                 argsImpl[i] = matlab::data::detail::Access::getImpl<matlab::data::impl::ArrayImpl>(args[i]);
             }
             std::promise<T>* p = new std::promise<T>();
-            void* output_ = output ? new std::shared_ptr<StreamBuffer>(std::move(output)) : nullptr;
-            void* error_ = error ? new std::shared_ptr<StreamBuffer>(std::move(error)) : nullptr;
+            void* output_ = output ? new SSBuffer(std::move(output)) : nullptr;
+            void* error_ = error ? new SSBuffer(std::move(error)) : nullptr;
             std::string utf8functionname = convertUTF16StringToASCIIString(function);
             uintptr_t handle = cppsharedlib_feval_with_completion(matlabHandle, utf8functionname.c_str(), nlhs, scalar,
                 argsImpl, nrhs, &_promise_data, &_promise_exception, p, output_, error_, &_write_buffer, &_delete_buffer);
-            return p->get_future().get();
+            return p->get_future();
         }
-
         std::vector<matlab::data::Array> feval(const std::u16string &function, const size_t nlhs,
                                                const std::vector<matlab::data::Array> &args,
-                                               const std::shared_ptr<StreamBuffer> &output = std::shared_ptr<StreamBuffer>(),
-                                               const std::shared_ptr<StreamBuffer> &error = std::shared_ptr<StreamBuffer>()) {
-            return _feval<false>(function, nlhs, args, output, error);
+                                               const SSBuffer &output = SSBuffer(),
+                                               const SSBuffer &error = SSBuffer()) {
+            return _feval<false>(function, nlhs, args, output, error).get();
         }
         matlab::data::Array feval(const std::u16string &function, const std::vector<matlab::data::Array> &args,
-                                  const std::shared_ptr<StreamBuffer> &output = std::shared_ptr<StreamBuffer>(),
-                                  const std::shared_ptr<StreamBuffer> &error = std::shared_ptr<StreamBuffer>()) {
-            return _feval<true>(function, 1, args, output, error);
+                                  const SSBuffer &output = SSBuffer(), const SSBuffer &error = SSBuffer()) {
+            return _feval<true>(function, 1, args, output, error).get();
         }
         matlab::data::Array feval(const std::u16string &function, const matlab::data::Array &arg,
-                                  const std::shared_ptr<StreamBuffer> &output = std::shared_ptr<StreamBuffer>(),
-                                  const std::shared_ptr<StreamBuffer> &error = std::shared_ptr<StreamBuffer>()) {
+                                  const SSBuffer &output = SSBuffer(), const SSBuffer &error = SSBuffer()) {
+            std::vector<matlab::data::Array> args = {arg};
+            return _feval<true>(function, 1, args, output, error).get();
+        }
+        std::future<std::vector<matlab::data::Array>> fevalAsync(const std::u16string &function, const size_t nlhs,
+            const std::vector<matlab::data::Array> &args, const SSBuffer &output = SSBuffer(), const SSBuffer &error = SSBuffer()) {
+            return _feval<false>(function, nlhs, args, output, error);
+        }
+        std::future<matlab::data::Array> fevalAsync(const std::u16string &function, const std::vector<matlab::data::Array> &args,
+            const SSBuffer &output = SSBuffer(), const SSBuffer &error = SSBuffer()) {
+            return _feval<true>(function, 1, args, output, error);
+        }
+        std::future<matlab::data::Array> fevalAsync(const std::u16string &function, const matlab::data::Array &arg,
+            const SSBuffer &output = SSBuffer(), const SSBuffer &error = SSBuffer()) {
             std::vector<matlab::data::Array> args = {arg};
             return _feval<true>(function, 1, args, output, error);
-        }       
+        }
         ExecutionInterface(uint64_t handle) : matlabHandle(handle) {}
         ~ExecutionInterface() {
             matlabHandle = 0;
@@ -196,6 +208,8 @@ namespace matlab {
   } // namespace execution
 
   namespace cpplib {
+
+    template<typename T> using FutureResult = std::future<T>;
 
     enum class MATLABApplicationMode {
         OUT_OF_PROCESS = 0,
