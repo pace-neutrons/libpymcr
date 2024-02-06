@@ -3,17 +3,25 @@ import unittest
 import numpy as np
 import os, sys
 
+_VERSION_DIR = os.path.abspath(os.path.dirname(__file__))
+_VERSIONS = []
+for file in os.scandir(_VERSION_DIR):
+    if file.is_file() and file.name.startswith('test_R') and file.name.endswith('.ctf'):
+        _VERSIONS.append({'file': os.path.join(_VERSION_DIR, file.name),
+                          'version': file.name.split('test_')[1].split('.')[0]
+                          })
+
 class PacePythonTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         import libpymcr
-        try:
-            libpymcr.utils.checkPath('9.8')
-        except RuntimeError:
-            cls.m = libpymcr.Matlab(os.path.join(os.path.dirname(__file__), 'test_R2021a.ctf'))
-        else:
-            cls.m = libpymcr.Matlab(os.path.join(os.path.dirname(__file__), 'test_R2020a.ctf'))
+        for ver in _VERSIONS:
+            mlPath = libpymcr.utils.checkPath(ver['version'], error_if_not_found=False)
+            if mlPath is not None:
+                cls.m = libpymcr.Matlab(ver['file'], mlPath)
+                return
+        raise RuntimeError('Could not find a valid Matlab version')
 
     @classmethod
     def tearDownClass(cls):
