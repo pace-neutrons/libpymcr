@@ -103,6 +103,12 @@ class Matlab(object):
         """
         return NamespaceWrapper(self._interface, name)
 
+    def type(self, obj):
+        if hasattr(obj, 'handle'):
+            return self._interface.call('class', obj.handle, nargout=1)
+        else:
+            return str(type(obj))
+
     def get_matlab_functions(self):
         """
         Returns a list of public functions in this CTF archive
