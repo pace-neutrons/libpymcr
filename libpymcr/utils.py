@@ -234,7 +234,7 @@ class DetectMatlab(object):
     def guess_from_syspath(self):
         matlab_exe = shutil.which('matlab')
         if matlab_exe is None:
-            return None if self.system == 'Windows' else guess_from_env('PATH')
+            return None if self.system == 'Windows' else self.guess_from_env('PATH')
         mlbinpath = os.path.dirname(os.path.realpath(matlab_exe))
         return self.find_version(os.path.abspath(os.path.join(mlbinpath, '..')))
 

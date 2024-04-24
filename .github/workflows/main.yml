@@ -61,20 +61,20 @@ jobs:
         os: [ubuntu-22.04, windows-2022, macos-12]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Cache MCR
         if: ${{ matrix.os != 'ubuntu-22.04' }}
         id: cache-mcr
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: mcr
           key: ${{ runner.os }}-matlab-${{ env.MCRVER }}-mcr
           lookup-only: true
       - name: Cache gists
         id: cache-gists
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: gists
           key: ${{ runner.os }}-gists
@@ -112,7 +112,7 @@ jobs:
         os: [ubuntu-22.04, windows-2022, macos-12]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Setup variables
@@ -143,18 +143,18 @@ jobs:
         uses: matlab-actions/setup-matlab@v1.2.4
         with:
           release: ${{ env.MLVER }}
-      - uses: actions/cache/restore@v3
+      - uses: actions/cache/restore@v4
         if: ${{ matrix.os != 'ubuntu-22.04' }}
         with:
           path: mcr
           key: ${{ runner.os }}-matlab-${{ env.MCRVER }}-mcr
           fail-on-cache-miss: true
-      - uses: actions/cache/restore@v3
+      - uses: actions/cache/restore@v4
         with:
           path: gists
           key: ${{ runner.os }}-gists
           fail-on-cache-miss: true
-      - uses: pypa/cibuildwheel@v2.12.0
+      - uses: pypa/cibuildwheel@v2.17.0
         env:
           CIBW_BUILD: ${{ env.CIBW }}
           CIBW_ENVIRONMENT: >-
@@ -162,9 +162,8 @@ jobs:
             HOSTDIRECTORY="${{ env.MLPREFIX }}${{ env.HOSTDIRECTORY }}"
           CIBW_BUILD_VERBOSITY: 1
           MACOSX_DEPLOYMENT_TARGET: "10.15"
-      - uses: mamba-org/provision-with-micromamba@main
+      - uses: mamba-org/setup-micromamba@v1
         with:
-          environment-file: false
           cache-downloads: true
       - name: Install wheels and run test
         run: |
@@ -176,7 +175,9 @@ jobs:
             eval "$($MAMBA_EXE shell activate py$pyver)"
             python -m pip install wheelhouse/*cp$(echo $pyver | sed s/\\.//)*
             cd test
-            python run_test.py
+            # Sometimes the test results in a segfault on exit
+            python run_test.py || true
+            test -f success
             cd ..
           done
       - name: Upload release wheels
@@ -187,7 +188,7 @@ jobs:
       #- name: Setup tmate
       #  if: ${{ failure() }}
       #  uses: mxschmitt/action-tmate@v3
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}_artifacts.zip
           path: |
