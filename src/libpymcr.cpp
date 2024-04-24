@@ -26,11 +26,18 @@ namespace libpymcr {
         return nargout;
     }
 
-    template <class T> T evalloop(matlab::cpplib::FutureResult<T> resAsync) {
+    template <class T> T matlab_env::evalloop(matlab::cpplib::FutureResult<T> resAsync) {
         std::chrono::duration<int, std::milli> period(1);
         std::future_status status = resAsync.wait_for(std::chrono::duration<int, std::milli>(1));
         while (status != std::future_status::ready) {
             status = resAsync.wait_for(period);
+            // Prints outputs and errors
+            if(_m_output.get()->in_avail() > 0) {
+                py::gil_scoped_acquire gil_acquire;
+                py::print(_m_output.get()->str(), py::arg("flush")=true);
+                py::gil_scoped_release gil_release;
+                _m_output.get()->str(std::basic_string<char16_t>());
+            }
         }
         return resAsync.get();
     }
@@ -59,8 +66,8 @@ namespace libpymcr {
         // Re-aquire the GIL
         py::gil_scoped_acquire gil_acquire;
         // Prints outputs and errors
-        if(_m_output.get()->in_avail() > 0) {
-            py::print(_m_output.get()->str(), py::arg("flush")=true); }
+        //if(_m_output.get()->in_avail() > 0) {
+        //    py::print(_m_output.get()->str(), py::arg("flush")=true); }
         if(_m_error.get()->in_avail() > 0) {
             py::print(_m_error.get()->str(), py::arg("file")=py::module::import("sys").attr("stderr"), py::arg("flush")=true); }
         // Converts outputs to Python types
