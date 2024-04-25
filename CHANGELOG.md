@@ -1,3 +1,15 @@
+# [v0.1.6](https://github.com/pace-neutrons/libpymcr/compare/v0.1.5...v0.1.6)
+
+## Bugfixes
+
+Bugfixes for various user reported issues when used with pace-python and PySpinW.
+
+* Add search of `matlab` executable on path for Linux.
+* Add a `type` method to interrogate Matlab type (fixes issue with [pace-python-demo example](https://github.com/pace-neutrons/pace-python-demo/blob/main/demo.py#L86))
+* Add a proxy to allow plain struct properties of a class to be manipulated like in Matlab (so `class.prop.subprop = 1` will work if `class.prop` is a plain Matlab `struct`).
+* Change to using `evalAsync` in Matlab and as part of this polls the output streams every 1ms and prints output to Python - this allows synchronous output to both console, Jupyter and Spyder without additional code.
+
+
 # [v0.1.5](https://github.com/pace-neutrons/libpymcr/compare/v0.1.4...v0.1.5)
 
 ## Bugfixes for PySpinW
