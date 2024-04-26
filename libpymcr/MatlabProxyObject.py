@@ -32,6 +32,32 @@ def unwrap(inputs, interface):
     else:
         return inputs
 
+
+class DictPropertyWrapper:
+    # A proxy for dictionary properties of classes to allow Matlab .dot syntax
+    def __init__(self, val, name, parent):
+        assert isinstance(val, dict), "DictPropertyWrapper can only wrap dict objects"
+        self.__dict__['val'] = val
+        self.__dict__['name'] = name
+        self.__dict__['parent'] = parent
+
+    def __getattr__(self, name):
+        rv = self.val[name]
+        if isinstance(rv, dict):
+            rv = DictPropertyWrapper(rv, name, self)
+        return rv
+
+    def __setattr__(self, name, value):
+        self.val[name] = value
+        setattr(self.parent, self.name, self.val)
+
+    def __repr__(self):
+        rv = "Matlab struct with fields:\n"
+        for k, v in self.val.items():
+            rv += f"    {k}: {v}\n"
+        return rv
+
+
 class matlab_method:
     def __init__(self, proxy, method):
         self.proxy = proxy
@@ -114,7 +140,10 @@ class MatlabProxyObject(object):
         # if it's a property, just retrieve it
         if name in self._getAttributeNames():
             try:
-                return wrap(self.interface.call('subsref', self.handle, {'type':'.', 'subs':name}), self.interface)
+                rv = wrap(self.interface.call('subsref', self.handle, {'type':'.', 'subs':name}), self.interface)
+                if isinstance(rv, dict):
+                    rv = DictPropertyWrapper(rv, name, self)
+                return rv
             except TypeError:
                 return None
         # if it's a method, wrap it in a functor
