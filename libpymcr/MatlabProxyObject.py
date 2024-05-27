@@ -51,6 +51,16 @@ class DictPropertyWrapper:
         self.val[name] = value
         setattr(self.parent, self.name, self.val)
 
+    def __getitem__(self, name):
+        rv = self.val[name]
+        if isinstance(rv, dict):
+            rv = DictPropertyWrapper(rv, name, self)
+        return rv
+
+    def __setitem__(self, name, value):
+        self.val[name] = value
+        setattr(self.parent, self.name, self.val)
+
     def __repr__(self):
         rv = "Matlab struct with fields:\n"
         for k, v in self.val.items():
