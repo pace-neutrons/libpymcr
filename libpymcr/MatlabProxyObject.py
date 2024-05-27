@@ -67,6 +67,14 @@ class DictPropertyWrapper:
             rv += f"    {k}: {v}\n"
         return rv
 
+    @property
+    def __name__(self):
+        return self.name
+
+    @property
+    def __origin__(self):
+        return getattr(type(self.parent), self.name)
+
 
 class matlab_method:
     def __init__(self, proxy, method):

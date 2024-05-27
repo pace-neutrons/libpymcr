@@ -225,10 +225,11 @@ def _generate_wrappers(funcfiles, classinfo, outputdir, preamble, prefix):
             classes.append(cls['name'])
             classfile = os.path.join(outputdir, f"{cls['name']}.py")
         with open(classfile, 'w') as f:
+            clsname = _get_funcname(cls['name'])
             f.write(preamble)
             f.write("from libpymcr import MatlabProxyObject\n")
             f.write("from libpymcr.utils import get_nlhs\n\n")
-            f.write(f"class {_get_funcname(cls['name'])}(MatlabProxyObject):\n")
+            f.write(f"class {clsname}(MatlabProxyObject):\n")
             f.write('    """\n')
             f.write(f"{cls['doc']}\n")
             f.write('    """\n')
@@ -242,6 +243,8 @@ def _generate_wrappers(funcfiles, classinfo, outputdir, preamble, prefix):
                 f.write( '        """\n')
                 f.write(f"        self.__dict__['interface'] = {prefix}._interface\n")
                 f.write( "        self.__dict__['_methods'] = []\n")
+                f.write(f"        self.__dict__['__name__'] = '{clsname}'\n")  # Needed for pydoc
+                f.write(f"        self.__dict__['__origin__'] = {clsname}\n")  # Needed for pydoc
                 f.write(f'        {argline}\n')
                 f.write(f'        args += sum(kwargs.items(), ())\n')
                 f.write(f"        self.__dict__['handle'] = self.interface.call('{cls['name']}', *args, nargout=1)\n")
