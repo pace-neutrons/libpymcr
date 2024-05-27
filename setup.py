@@ -142,6 +142,8 @@ KEYWORDARGS = dict(
     packages=['libpymcr'],
     install_requires = ['numpy>=1.7.1'],
     cmdclass=cmdclass,
+    entry_points = {'console_scripts': [
+        'matlab2python = scripts.matlab2python:main']},
     url="https://github.com/pace-neutrons/libpymcr",
     zip_safe=False,
     classifiers=[

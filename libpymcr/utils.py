@@ -177,9 +177,12 @@ class DetectMatlab(object):
 
     @ver.setter
     def ver(self, val):
-        self._ver = str(val)
-        if self._ver.startswith('R') and self._ver in MLVERDIC.keys():
-            self._ver = MLVERDIC[self._ver]
+        if val is None:
+            self._ver = None
+        else:
+            self._ver = str(val)
+            if self._ver.startswith('R') and self._ver in MLVERDIC.keys():
+                self._ver = MLVERDIC[self._ver]
 
     def _append_exe(self, exe_file):
         if exe_file is not None:
@@ -227,7 +230,7 @@ class DetectMatlab(object):
             if self.system == 'Windows' and ':' not in ml_env:
                 pp = ml_env.split('/')[1:]
                 ml_env = pp[0] + ':\\' + '\\'.join(pp[1:])
-            mlPath += [os.path.abspath(os.path.join((ml_env,) + self.dirlevel))]
+            mlPath += [os.path.abspath(os.path.join(ml_env, *self.dirlevel))]
         for possible_dir in mlPath + GUESSES[self.system]:
             if os.path.isdir(possible_dir):
                 rv = self.find_version(possible_dir, suppress_output)
@@ -242,7 +245,7 @@ class DetectMatlab(object):
             return None
         for possible_dir in ld_path.split(self.sep):
             if os.path.exists(os.path.join(possible_dir, self.file_to_find)):
-                return os.path.abspath(os.path.join((possible_dir,) + self.dirlevel))
+                return os.path.abspath(os.path.join(possible_dir, *self.dirlevel))
         return None
 
     def guess_from_syspath(self, suppress_output=False):
@@ -259,7 +262,7 @@ class DetectMatlab(object):
     #    rt = os.path.join('runtime', self.arch)
     #    pv = os.getenv(self.path_var).split(self.sep)
     #    for path in [dd for dd in pv if rt in dd]:
-    #        if self.find_version(os.path.join((path,) + self.dirlevel), suppress_output) is not None:
+    #        if self.find_version(os.path.join(path, *self.dirlevel), suppress_output) is not None:
     #            return False
     #    return True
 
