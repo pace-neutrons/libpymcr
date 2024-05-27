@@ -26,6 +26,8 @@ OPERATOR_NAMES = {
 MLVERDIC = {f'R{rv[0]}{rv[1]}':f'9.{vr}' for rv, vr in zip([[yr, ab] for yr in range(2017,2023) for ab in ['a', 'b']], range(2, 14))}
 MLVERDIC.update({'R2023a':'9.14', 'R2023b':'23.2'})
 
+MLEXEFOUND = {}
+
 def get_nret_from_dis(frame):
     # Tries to get the number of return values for a function
     # Code adapted from Mantid/Framework/PythonInterface/mantid/kernel/funcinspect.py
@@ -136,13 +138,13 @@ def get_matlab_from_registry(version=None):
             for v in versions:
                 with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, f'SOFTWARE\\MathWorks\\{installation}\\{v}') as key:
                     retval.append(winreg.QueryValueEx(key, 'MATLABROOT')[0])
-    return retval[0]
+    return retval
 
 
 class DetectMatlab(object):
     def __init__(self, version=None):
         self.ver = version
-        self.PLATFORM_DICT = {'Windows': ['PATH', 'dll', '', 'exe', ';'], 'Linux': ['LD_LIBRARY_PATH', 'so', 'libmw', '', ':'],
+        self.PLATFORM_DICT = {'Windows': ['PATH', 'dll', '', '.exe', ';'], 'Linux': ['LD_LIBRARY_PATH', 'so', 'libmw', '', ':'],
                               'Darwin': ['DYLD_LIBRARY_PATH', 'dylib', 'libmw', '', ':']}
         # Note that newer Matlabs are 64-bit only
         self.ARCH_DICT = {'Windows': {'64bit': 'win64', '32bit': 'pcwin32'},
@@ -158,8 +160,9 @@ class DetectMatlab(object):
         self.arch = self.ARCH_DICT[self.system][platform.architecture()[0]]
         self.required_dirs = self.REQ_DIRS[self.system]
         self.dirlevel = ('..', '..')
+        self.matlab_exe = ''.join(('matlab', self.exe_ext))
         if self.ver is None:
-            self.file_to_find = ''.join(('matlab', self.exe_ext))
+            self.file_to_find = self.matlab_exe
             self.dirlevel = ('..',)
         elif self.system == 'Windows':
             self.file_to_find = ''.join((self.lib_prefix, 'mclmcrrt', self.ver.replace('.','_'), '.', self.ext))
@@ -177,6 +180,12 @@ class DetectMatlab(object):
         self._ver = str(val)
         if self._ver.startswith('R') and self._ver in MLVERDIC.keys():
             self._ver = MLVERDIC[self._ver]
+
+    def _append_exe(self, exe_file):
+        if exe_file is not None:
+            global MLEXEFOUND
+            if self.ver not in MLEXEFOUND:
+                MLEXEFOUND[self.ver] = os.path.abspath(Path(exe_file).parents[1])
 
     def find_version(self, root_dir, suppress_output=False):
         if not suppress_output:
@@ -203,6 +212,7 @@ class DetectMatlab(object):
                 print(f'Found Matlab {self.ver} {self.arch} at {ml_path}')
             return ml_path
         else:
+            self._append_exe(find_file(root_dir, self.matlab_exe))
             return None
 
     def guess_path(self, mlPath=[], suppress_output=False):
@@ -228,7 +238,8 @@ class DetectMatlab(object):
     def guess_from_env(self, ld_path=None):
         if ld_path is None:
             ld_path = os.getenv(self.path_var)
-        if ld_path is None: return None
+        if ld_path is None:
+            return None
         for possible_dir in ld_path.split(self.sep):
             if os.path.exists(os.path.join(possible_dir, self.file_to_find)):
                 return os.path.abspath(os.path.join((possible_dir,) + self.dirlevel))
@@ -241,28 +252,28 @@ class DetectMatlab(object):
         mlbinpath = os.path.dirname(os.path.realpath(matlab_exe))
         return self.find_version(os.path.abspath(os.path.join(mlbinpath, '..')), suppress_output)
 
-    def env_not_set(self, suppress_output=False):
-        # Determines if the environment variables required by the MCR are set
-        if self.path_var not in os.environ:
-            return True
-        rt = os.path.join('runtime', self.arch)
-        pv = os.getenv(self.path_var).split(self.sep)
-        for path in [dd for dd in pv if rt in dd]:
-            if self.find_version(os.path.join((path,) + self.dirlevel), suppress_output) is not None:
-                return False
-        return True
+    #def env_not_set(self, suppress_output=False):
+    #    # Determines if the environment variables required by the MCR are set
+    #    if self.path_var not in os.environ:
+    #        return True
+    #    rt = os.path.join('runtime', self.arch)
+    #    pv = os.getenv(self.path_var).split(self.sep)
+    #    for path in [dd for dd in pv if rt in dd]:
+    #        if self.find_version(os.path.join((path,) + self.dirlevel), suppress_output) is not None:
+    #            return False
+    #    return True
 
-    def set_environment(self, mlPath=None):
-        if mlPath is None:
-            mlPath = self.guess_path()
-        if mlPath is None:
-            raise RuntimeError('Could not find Matlab')
-        req_matlab_dirs = self.sep.join([os.path.join(mlPath, sub, self.arch) for sub in self.required_dirs])
-        if self.path_var not in os.environ:
-            os.environ[self.path_var] = req_matlab_dirs
-        else:
-            os.environ[self.path_var] += self.sep + req_matlab_dirs
-        return None
+    #def set_environment(self, mlPath=None):
+    #    if mlPath is None:
+    #        mlPath = self.guess_path()
+    #    if mlPath is None:
+    #        raise RuntimeError('Could not find Matlab')
+    #    req_matlab_dirs = self.sep.join([os.path.join(mlPath, sub, self.arch) for sub in self.required_dirs])
+    #    if self.path_var not in os.environ:
+    #        os.environ[self.path_var] = req_matlab_dirs
+    #    else:
+    #        os.environ[self.path_var] += self.sep + req_matlab_dirs
+    #    return None
 
 
 def checkPath(runtime_version, mlPath=None, error_if_not_found=True, suppress_output=False):
@@ -282,9 +293,7 @@ def checkPath(runtime_version, mlPath=None, error_if_not_found=True, suppress_ou
             if not os.path.exists(mlPath):
                 raise FileNotFoundError(f'Input Matlab folder {mlPath} not found')
     else:
-        mlPath = get_matlab_from_registry(runtime_version) if platform.system() == 'Windows' else None
-        if mlPath is None:
-            mlPath = obj.guess_from_env()
+        mlPath = obj.guess_from_env()
         if mlPath is None:
             mlPath = obj.guess_from_syspath()
         if mlPath is None:
@@ -294,7 +303,13 @@ def checkPath(runtime_version, mlPath=None, error_if_not_found=True, suppress_ou
                 os.environ[obj.path_var] = ld_path
                 #print('Set ' + os.environ.get(obj.path_var))
             elif error_if_not_found:
-                raise RuntimeError('Cannot find Matlab')
+                if obj.ver in MLEXEFOUND:
+                    raise RuntimeError(f'Found Matlab executable for version {runtime_version} ' \
+                                        'but could not find Compiler Runtime libraries.\n' \
+                                        'Please install the Matlab Compiler Runtime SDK toolbox ' \
+                                        'for this version of Matlab')
+                else:
+                    raise RuntimeError(f'Cannot find Matlab version {runtime_version}')
         #else:
         #    print('Found: ' + os.environ.get(obj.path_var))
 
