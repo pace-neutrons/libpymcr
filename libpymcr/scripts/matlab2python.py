@@ -175,7 +175,7 @@ def _parse_args(fn):
         return '*args, ', ''
     argp = ', '.join([v for v in fn[1][0] if v != '' and 'varargin' not in v and v != '~'])
     args = ''.join([f'{v.replace("~","_")}=None, ' for v in fn[1][0] if v!= '']).replace('varargin=None, ', '*args, ')
-    argline = f'args = [v for v in [{argp}] if v is not None]'
+    argline = f'args = tuple(v for v in [{argp}] if v is not None)'
     if '*args' in args:
         argline += ' + args'
     return args, argline

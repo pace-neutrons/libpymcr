@@ -25,7 +25,7 @@ def unwrap(inputs, interface):
         return interface.call('feval', meth_wrapper, inputs.proxy.handle)
     elif isinstance(inputs, tuple):
         return tuple(unwrap(v, interface) for v in inputs)
-    elif isinstance(inputs, list):
+    elif isinstance(inputs, list) or isinstance(inputs, range):
         return [unwrap(v, interface) for v in inputs]
     elif isinstance(inputs, dict):
         return {k:unwrap(v, interface) for k, v in inputs.items()}
@@ -186,38 +186,38 @@ class MatlabProxyObject(object):
     def __getitem__(self, key):
         if not (isinstance(key, int) or (hasattr(key, 'is_integer') and key.is_integer())) or key < 0:
             raise RuntimeError('Matlab container indices must be positive integers')
-        key = [float(key + 1)]   # Matlab uses 1-based indexing
-        return self.interface.call('subsref', self.handle, {'type':'()', 'subs':key})
+        key = (float(key + 1),)   # Matlab uses 1-based indexing
+        return wrap(self.interface.call('subsref', self.handle, {'type':'()', 'subs':key}), self.interface)
 
     def __setitem__(self, key, value):
         if not (isinstance(key, int) or (hasattr(key, 'is_integer') and key.is_integer())) or key < 0:
             raise RuntimeError('Matlab container indices must be positive integers')
         if not isinstance(value, MatlabProxyObject) or repr(value) != self.__repr__():
             raise RuntimeError('Matlab container items must be same type.')
-        access = self.interface.call('substruct', '()', [float(key + 1)])   # Matlab uses 1-based indexing
-        self.__dict__['handle'] = self.interface.call('subsasgn', self.handle, access, value)
+        access = self.interface.call('substruct', '()', (float(key + 1),))   # Matlab uses 1-based indexing
+        self.__dict__['handle'] = self.interface.call('subsasgn', self.handle, access, value.handle)
 
     def __len__(self):
         return int(self.interface.call('numel', self.handle, nargout=1))
 
     # Operator overloads
     def __eq__(self, other):
-        return self.interface.call('eq', self.handle, other, nargout=1)
+        return self.interface.call('eq', self.handle, unwrap(other, self.interface), nargout=1)
 
     def __ne__(self, other):
-        return self.interface.call('ne', self.handle, other, nargout=1)
+        return self.interface.call('ne', self.handle, unwrap(other, self.interface), nargout=1)
 
     def __lt__(self, other):
-        return self.interface.call('lt', self.handle, other, nargout=1)
+        return self.interface.call('lt', self.handle, unwrap(other, self.interface), nargout=1)
 
     def __gt__(self, other):
-        return self.interface.call('gt', self.handle, other, nargout=1)
+        return self.interface.call('gt', self.handle, unwrap(other, self.interface), nargout=1)
 
     def __le__(self, other):
-        return self.interface.call('le', self.handle, other, nargout=1)
+        return self.interface.call('le', self.handle, unwrap(other, self.interface), nargout=1)
 
     def __ge__(self, other):
-        return self.interface.call('ge', self.handle, other, nargout=1)
+        return self.interface.call('ge', self.handle, unwrap(other, self.interface), nargout=1)
 
     def __bool__(self):
         return self.interface.call('logical', self.handle, nargout=1)
@@ -226,7 +226,7 @@ class MatlabProxyObject(object):
         return self.interface.call('and', self.handle, other, nargout=1)
 
     def __or__(self, other):   # bit-wise | operator (not `or` keyword)
-        return self.interface.call('or', self.handle, other, nargout=1)
+        return self.interface.call('or', self.handle, unwrap(other, self.interface), nargout=1)
 
     def __invert__(self):      # bit-wise ~ operator (not `not` keyword)
         return self.interface.call('not', self.handle, nargout=1)
@@ -241,31 +241,31 @@ class MatlabProxyObject(object):
         return self.interface.call('abs', self.handle, nargout=1)
 
     def __add__(self, other):
-        return self.interface.call('plus', self.handle, other, nargout=1)
+        return self.interface.call('plus', self.handle, unwrap(other, self.interface), nargout=1)
 
     def __radd__(self, other):
-        return self.interface.call('plus', other, self.handle, nargout=1)
+        return self.interface.call('plus', unwrap(other, self.interface), self.handle, nargout=1)
 
     def __sub__(self, other):
-        return self.interface.call('minus', self.handle, other, nargout=1)
+        return self.interface.call('minus', self.handle, unwrap(other, self.interface), nargout=1)
 
     def __rsub__(self, other):
-        return self.interface.call('minus', other, self.handle, nargout=1)
+        return self.interface.call('minus', unwrap(other, self.interface), self.handle, nargout=1)
 
     def __mul__(self, other):
-        return self.interface.call('mtimes', self.handle, other, nargout=1)
+        return self.interface.call('mtimes', self.handle, unwrap(other, self.interface), nargout=1)
 
     def __rmul__(self, other):
-        return self.interface.call('mtimes', other, self.handle, nargout=1)
+        return self.interface.call('mtimes', unwrap(other, self.interface), self.handle, nargout=1)
 
     def __truediv__(self, other):
-        return self.interface.call('mrdivide', self.handle, other, nargout=1)
+        return self.interface.call('mrdivide', self.handle, unwrap(other, self.interface), nargout=1)
 
     def __rtruediv__(self, other):
-        return self.interface.call('mrdivide', other, self.handle, nargout=1)
+        return self.interface.call('mrdivide', unwrap(other, self.interface), self.handle, nargout=1)
 
     def __pow__(self, other):
-        return self.interface.call('mpower', self.handle, other, nargout=1)
+        return self.interface.call('mpower', self.handle, unwrap(other, self.interface), nargout=1)
 
     @property
     def __doc__(self):

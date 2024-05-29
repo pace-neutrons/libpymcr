@@ -204,13 +204,7 @@ class DetectMatlab(object):
             return None
         lib_file = find_file(root_dir, self.file_to_find)
         if lib_file is not None:
-            lib_path = Path(lib_file)
-            arch_dir = lib_path.parts[-2]
-            self.arch = arch_dir
-            ml_subdir = lib_path.parts[-3]
-            if ml_subdir != 'runtime':
-                self.ver = ml_subdir
-            ml_path = os.path.abspath(lib_path.parents[2])
+            ml_path = os.path.abspath(os.path.join(os.path.dirname(lib_file), *self.dirlevel))
             if not suppress_output:
                 print(f'Found Matlab {self.ver} {self.arch} at {ml_path}')
             return ml_path

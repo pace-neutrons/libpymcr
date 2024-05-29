@@ -553,7 +553,7 @@ matlab::data::Array pymat_converter::python_to_matlab_single(PyObject *input, ma
     } else if (PyComplex_Check(input)) {
         output = factory.createScalar(std::complex<double>(PyComplex_RealAsDouble(input), PyComplex_ImagAsDouble(input)));
     } else if (input == Py_None) {
-        output = factory.createArray<double>({});
+        output = factory.createArray<double>({0,0});
     } else if (PyCallable_Check(input)) {
         output = wrap_python_function(input, factory);
     } else if (PyObject_TypeCheck(input, m_py_matlab_wrapper_t)) {
