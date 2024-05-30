@@ -139,9 +139,12 @@ KEYWORDARGS = dict(
     long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
     ext_modules=[CMakeExtension('libpymcr._libpymcr')],
-    packages=['libpymcr'],
+    packages=['libpymcr', 'libpymcr.scripts'],
+    package_data={'libpymcr.scripts': [os.path.join(os.path.dirname(__file__), 'libpymcr', 'scripts', 'parseclass.m')]},
     install_requires = ['numpy>=1.7.1'],
     cmdclass=cmdclass,
+    entry_points = {'console_scripts': [
+        'matlab2python = libpymcr.scripts.matlab2python:main']},
     url="https://github.com/pace-neutrons/libpymcr",
     zip_safe=False,
     classifiers=[

@@ -1,3 +1,33 @@
+# [v0.1.7](https://github.com/pace-neutrons/libpymcr/compare/v0.1.6...v0.1.7)
+
+## New Features
+
+Add a command `matlab2python` which generates Python wrappers for Matlab code in a specified directory (syntax is similar to `mcc`).
+By default the Python wrappers are created in a package folder called `matlab_wrapped`.
+If you have a package and want to call the Matlab functions without the `m.` prefix, you can do:
+
+```
+from matlab_wrapped import *
+```
+
+Matlab class properties which are standard types (`dict`s, `list`s and numpy arrays) are now better supported by a fix to `DictPropertyWrapper` and a new `VectorPropertyWrapper`, which allows syntax like:
+
+```
+obj.prop['a'] = 1
+obj.prop[1] = 2
+```
+
+Matlab column vectors can be indexed with a single index (rather than requiring a tuple as in `obj.prop[1,2]` which numpy requires).
+
+## Bugfixes
+
+Bugfixes for some issues arising from testing in preparation for EDATC2
+
+* Update matlab checker to be more robust and to output a warning of a licensed Matlab was found but the Compiler SDK toolbox is not installed.
+* Fix `MatlabProxyObject` dunder methods to work with libpymcr.
+* Fix `MatlabProxyObject` indexing bug where libpymcr converted the old list to a vector instead of a cell-array (now uses a tuple).
+* Fix a bug in `call.m` where `nargout` is confused if the called function is shadowed (e.g. `fit`) and it could not determined the maximum `nargout`.
+
 # [v0.1.6](https://github.com/pace-neutrons/libpymcr/compare/v0.1.5...v0.1.6)
 
 ## Bugfixes

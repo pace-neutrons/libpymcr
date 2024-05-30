@@ -53,7 +53,7 @@ class _MatlabInstance(object):
 class NamespaceWrapper(object):
     def __init__(self, interface, name):
         self._interface = interface
-        self._name = name
+        self._name = name[:-1] if name.endswith('_') else name
 
     def __getattr__(self, name):
         return NamespaceWrapper(self._interface, f'{self._name}.{name}')
