@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main]
     types: [closed]
+  workflow_dispatch:
 
 jobs:
   create_release:
@@ -18,5 +19,5 @@ jobs:
           github.event.pull_request.merged
         shell: bash -l {0}
         run: |
-          pip3 install requests
+          pip3 install requests numpy
           python3 release.py --notest --github --create_tag --token=${{ secrets.GH_GIST_TOKEN }}

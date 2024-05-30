@@ -183,7 +183,7 @@ jobs:
       - name: Upload release wheels
         if: ${{ github.event_name == 'release' }}
         run: |
-          pip3 install requests
+          pip3 install requests numpy
           python3 release.py --notest --github --token=${{ secrets.GH_GIST_TOKEN }}
       #- name: Setup tmate
       #  if: ${{ failure() }}
