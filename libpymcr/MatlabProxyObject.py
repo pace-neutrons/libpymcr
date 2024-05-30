@@ -1,5 +1,6 @@
 from io import StringIO
 from .utils import get_nlhs
+import numpy as np
 import re
 
 def wrap(inputs, interface):
@@ -33,18 +34,37 @@ def unwrap(inputs, interface):
         return inputs
 
 
+class VectorPropertyWrapper:
+    # A proxy for a Matlab (ndarray) column vector to allow single indexing
+    def __init__(self, val):
+        self.val = val
+
+    def __getitem__(self, ind):
+        return self.val[0, ind] if ind > 0 else self.val[ind]
+
+    def __setitem__(self, ind, value):
+        if ind > 0:
+            self.val[0, ind] = value
+        else:
+            self.val[ind] = value
+
+    def __repr__(self):
+        return self.val.__repr__()
+
+
 class DictPropertyWrapper:
     # A proxy for dictionary properties of classes to allow Matlab .dot syntax
     def __init__(self, val, name, parent):
-        assert isinstance(val, dict), "DictPropertyWrapper can only wrap dict objects"
         self.__dict__['val'] = val
         self.__dict__['name'] = name
         self.__dict__['parent'] = parent
 
     def __getattr__(self, name):
         rv = self.val[name]
-        if isinstance(rv, dict):
+        if isinstance(rv, dict) or isinstance(rv, list):
             rv = DictPropertyWrapper(rv, name, self)
+        elif isinstance(rv, np.ndarray) and rv.shape[0] == 1:
+            rv = VectorPropertyWrapper(rv)
         return rv
 
     def __setattr__(self, name, value):
@@ -53,7 +73,7 @@ class DictPropertyWrapper:
 
     def __getitem__(self, name):
         rv = self.val[name]
-        if isinstance(rv, dict):
+        if isinstance(rv, dict) or isinstance(rv, list):
             rv = DictPropertyWrapper(rv, name, self)
         return rv
 
@@ -159,7 +179,7 @@ class MatlabProxyObject(object):
         if name in self._getAttributeNames():
             try:
                 rv = wrap(self.interface.call('subsref', self.handle, {'type':'.', 'subs':name}), self.interface)
-                if isinstance(rv, dict):
+                if isinstance(rv, dict) or isinstance(rv, list):
                     rv = DictPropertyWrapper(rv, name, self)
                 return rv
             except TypeError:

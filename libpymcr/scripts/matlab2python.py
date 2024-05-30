@@ -183,18 +183,21 @@ def _parse_args(fn):
 
 def _get_funcname(fname):
     # Checks Python functions against reserved keywords
+    if '.' in fname:
+        fname = fname.split('.')[-1]
     return fname + '_' if fname in RESERVED else fname
 
 
 def _write_function(f, fn, prefix):
     args, argline = _parse_args(fn)
     fnname = _get_funcname(fn[0])
+    mname = fnname if '.' not in fn[0] else fn[0]
     f.write(f'def {fnname}({args}**kwargs):\n')
     f.write(f'    """\n')
     f.write(f'{fn[2]}\n')
     f.write(f'    """\n')
     f.write(f'    {argline}\n')
-    f.write(f'    return {prefix}.{fnname}(*args, **kwargs)\n\n\n')
+    f.write(f'    return {prefix}.{mname}(*args, **kwargs)\n\n\n')
 
 
 def _generate_wrappers(funcfiles, classinfo, outputdir, preamble, prefix):
@@ -233,6 +236,8 @@ def _generate_wrappers(funcfiles, classinfo, outputdir, preamble, prefix):
             f.write('    """\n')
             f.write(f"{cls['doc']}\n")
             f.write('    """\n')
+            if not isinstance(cls['methods'], list):
+                cls['methods'] = [cls['methods']]
             clscons = [c for c in cls['methods'] if c['name'] == cls['name']]
             if clscons:
                 clscons = clscons[0]
@@ -290,7 +295,7 @@ def _generate_wrappers(funcfiles, classinfo, outputdir, preamble, prefix):
         f.write(preamble)
         for cls in classes:
             f.write(f"from .{cls} import {cls}\n")
-        f.write('\n')
+        singlefuncs = []
         for fn in funcfiles:
             fn[0] = _conv_path_to_matlabpack(fn[0])
             if '.' in fn[0]:  # Put packages into separate files
@@ -300,8 +305,15 @@ def _generate_wrappers(funcfiles, classinfo, outputdir, preamble, prefix):
                 else:
                     funcs_in_packages[package] = [fn]
             else:
-                # Assume that varargin if present is always the last argument
-                _write_function(f, fn, prefix)
+                singlefuncs.append(fn)
+        packages = list(funcs_in_packages.keys()) + list(class_in_packages.keys())
+        # Imports only first level packages in the main __init__.py
+        for cls in [p for p in packages if os.path.sep not in p]:
+            f.write(f"from . import {cls}\n")
+        f.write('\n')
+        for fn in singlefuncs:
+            # Assume that varargin if present is always the last argument
+            _write_function(f, fn, prefix)
     for pack, fns in funcs_in_packages.items():
         packdir = os.path.join(outputdir, pack)
         if not os.path.exists(packdir):
@@ -311,6 +323,8 @@ def _generate_wrappers(funcfiles, classinfo, outputdir, preamble, prefix):
             if pack in class_in_packages:
                 for cls in class_in_packages.pop(pack):
                     f.write(f"from .{cls} import {cls}\n")
+            for cls in [p for p in packages if p != pack and p.startswith(pack)]:
+                f.write(f"from . import {cls.split(pack)[1][1:].split(os.path.sep)[0]}\n")
             f.write('\n')
             for fn in fns:
                 _write_function(f, fn, prefix)

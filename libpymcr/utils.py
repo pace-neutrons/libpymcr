@@ -24,7 +24,7 @@ OPERATOR_NAMES = {
 }
 
 MLVERDIC = {f'R{rv[0]}{rv[1]}':f'9.{vr}' for rv, vr in zip([[yr, ab] for yr in range(2017,2023) for ab in ['a', 'b']], range(2, 14))}
-MLVERDIC.update({'R2023a':'9.14', 'R2023b':'23.2'})
+MLVERDIC.update({'R2023a':'9.14', 'R2023b':'23.2', 'R2024a':'24.1'})
 
 MLEXEFOUND = {}
 
@@ -43,6 +43,8 @@ def get_nret_from_dis(frame):
             start_i = index
             start_offset = ins.offset
     call_fun_locs[start_offset] = start_i
+    if last_i not in call_fun_locs:
+        return 1  # Some error in the disassembly
     last_fun_offset = call_fun_locs[last_i]
     last_i_name = ins_stack[last_fun_offset].opname
     next_i_name = ins_stack[last_fun_offset + 1].opname
