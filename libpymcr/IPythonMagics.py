@@ -16,6 +16,36 @@ except ImportError:
     from backports.tempfile import TemporaryDirectory, TemporaryFile, NamedTemporaryFile
 
 _magic_class_ref = None
+_windowed_figs = []
+
+
+def _save_visible_figs(interface):
+    # Adds all visible figures to save list and close all others
+    children = interface.call('eval', "arrayfun(@(h) h, get(0, 'Children'), 'UniformOutput', false);")
+    if not children:
+        return
+    is_visible = interface.call('eval', "arrayfun(@(h) logical(get(h, 'Visible')), get(0, 'Children'));")
+    if not isinstance(is_visible, list):
+        is_visible = [is_visible]
+    global _windowed_figs
+    _windowed_figs = []
+    for visible, chld in zip(is_visible, children):
+        if visible:
+            _windowed_figs.append(chld)
+        else:
+            interface.call('close', chld)
+
+
+def _get_plot_figs(interface):
+    # Returns a list of figures which are not amongst the saved figures
+    children = interface.call('eval', "arrayfun(@(h) h, get(0, 'Children'), 'UniformOutput', false);")
+    if not children:
+        return []
+    is_saved = [False]*len(children)
+    for saved_figs in _windowed_figs:
+        is_saved = [a or interface.call('eq', saved_figs, b) for a, b in zip(is_saved, children)]
+    return [ch for saved, ch in zip(is_saved, children) if not saved]
+
 
 # We will overload the `post_run_cell` event with this function
 # That callback is a method of `EventManager` hence the `self` argument
@@ -23,7 +53,7 @@ def showPlot(self=None, result=None):
     # We use a global reference to the magics class to get the reference to Matlab interpreter
     # If it doesn't exist, we can't do anything, and assume the user is just using Python
     ip = get_ipython()
-    if ip is None or _magic_class_ref is None or _magic_class_ref.plot_type != 'inline':
+    if ip is None or _magic_class_ref is None:
         return
     if _magic_class_ref.m is None:
         try:
@@ -32,104 +62,35 @@ def showPlot(self=None, result=None):
         except RuntimeError:
             return
     interface = _magic_class_ref.m
+    if _magic_class_ref.plot_type != 'inline':
+        # Get list of figures which are not hidden now and keep them in list
+        _save_visible_figs(interface)
+        return
     nfig = int(interface.call('numel', interface.call('get', 0, "children"))[0][0])
     if nfig == 0:
         return
     if _magic_class_ref.next_pars:
-        width, height, resolution = (_magic_class_ref.next_pars[idx] for idx in ['width', 'height', 'resolution'])
+        width, height = (_magic_class_ref.next_pars[idx] for idx in ['width', 'height'])
     else:
-        width, height, resolution = (_magic_class_ref.width, _magic_class_ref.height, _magic_class_ref.resolution)
-    format = 'png'
+        width, height = (_magic_class_ref.width, _magic_class_ref.height)
+    filetype = 'png'
     with TemporaryDirectory() as tmpdir:
-        try:
-            interface.call('eval',
-                "arrayfun(@(h) set(h, 'position', [0, 0, {}, {}]), get(0, 'children')')"
-                                   .format(width, height), nargout=0)
-            interface.call('eval',
-                "arrayfun(@(h, i) print(h, sprintf('{}/%i', i), '-d{}', '-r{}'),get(0, 'children'), (1:{})')"
-                                   .format('/'.join(tmpdir.split(os.sep)), format, resolution, nfig),
-                nargout=0)
-            interface.call('eval', "arrayfun(@(h) close(h), get(0, 'children'))", nargout=0)
-            for fname in sorted(os.listdir(tmpdir)):
-                display(Image(filename=os.path.join(tmpdir, fname)))
-        except Exception as exc:
-            ip.showtraceback()
-            return
-        finally:
-            interface.call('set', 0, 'defaultfigurevisible', 'off', nargout=0)
-            if _magic_class_ref.next_pars:
-                _magic_class_ref.next_pars = None
-
-# Matlab writes to the C-level stdout / stderr file descriptors
-# whereas IPython overloads the Python-level sys.stdout / sys.stderr streams
-# To force Matlab output into the IPython cells we need to 
-#   1. Duplicate the stdout/err file descriptors into a pipe (with os.dup2)
-#   2. Create a thread which watches the pipe and re-prints to IPython
-# See: https://stackoverflow.com/questions/41216215/
-#      https://eli.thegreenplace.net/2015/redirecting-all-kinds-of-stdout-in-python/
-
-class Redirection(object):
-    # Class which redirects a C-level file descriptor to the equiv. IPython stream
-
-    thread = None
-    stop_flag = None
-    saved_fd = None
-    read_pipe = None
-    exc_info = None
-
-    def __init__(self, target='stdout'):
-        self.target = {'stdout':sys.__stdout__, 'stderr':sys.__stderr__}[target].fileno()
-        self.output = {'stdout':sys.stdout, 'stderr':sys.stderr}[target]
-        self.ip = get_ipython()
-        self.flush = lambda: None
-
-    def not_redirecting(self):
-        return (
-                self.ip is None or _magic_class_ref is None or
-                (_magic_class_ref.output != 'inline' and self.saved_fd == None)
-               )
-
-    def pre(self):
-        if self.not_redirecting():
-            return
-        if self.saved_fd == None:
-            self.saved_fd = os.dup(self.target)
-        self.read_pipe, write_pipe = os.pipe()
-        os.dup2(write_pipe, self.target)
-        os.close(write_pipe)
-
-        def redirect_thread():
+        for ii, child in enumerate(reversed(_get_plot_figs(interface))):
+            fname = os.path.join(tmpdir, f'{ii}.{filetype}')
             try:
-                while not self.stop_flag:
-                    raw = os.read(self.read_pipe, 1000)
-                    if raw:
-                        self.output.write(raw.decode())
-                        self.flush()
-            except Exception:
-                self.exc_info = sys.exc_info()
-
-        self.stop_flag = False
-        self.thread = threading.Thread(target=redirect_thread)
-        self.thread.daemon = True  # Makes the thread non-blocking
-        self.thread.start()
-
-    def showtraceback(self):
-        self.ip.showtraceback()
-
-    def post(self):
-        if self.not_redirecting() or self.saved_fd == None:
-            return
-        sys.stdout.flush()
-        os.dup2(self.saved_fd, self.target)
-        self.stop_flag = True
-        os.close(self.read_pipe)
-        os.close(self.saved_fd)
-        if sys.platform.startswith("linux") or sys.platform.startswith("darwin"):
-            self.thread.join()
-        self.thread = None
-        self.saved_fd = None
-        if self.exc_info:
-            self.showtraceback()
+                interface.call('set', child, 'PaperPosition', [0.5, 0.5, width/300., height/300.])
+                interface.call('set', child, 'PaperUnits', 'inches')
+                interface.call('print', child, fname, f'-d{filetype}', '-r300')
+            except Exception as ex0:
+                print(f'Could not draw figure {ii} due to error:')
+                ip.showtraceback()
+            else:
+                display(Image(filename=fname))
+            finally:
+                interface.call('close', child)
+        interface.call('set', 0, 'defaultfigurevisible', 'off', nargout=0)
+        if _magic_class_ref.next_pars:
+            _magic_class_ref.next_pars = None
 
 
 @magics_class
@@ -140,7 +101,7 @@ class MatlabMagics(Magics):
     It defines several magic functions:
 
     %matlab_plot_mode - sets up the plotting environment (default 'inline')
-    %matlab_fig - defines the inline figure size and resolution for the next plot only
+    %matlab_fig - defines the inline figure size for the next plot only
     """
 
     def __init__(self, shell, interface):
@@ -152,7 +113,6 @@ class MatlabMagics(Magics):
                 else 'windowed'
         self.width = 400
         self.height = 300
-        self.resolution = 100
         self.next_pars = None
         global _magic_class_ref
         _magic_class_ref = self
@@ -163,7 +123,6 @@ class MatlabMagics(Magics):
     @magic_arguments.argument('output', nargs='?', type=str, help="Matlab output, either: 'inline' or 'console'")
     @magic_arguments.argument('-w', '--width', type=int, help="Default figure width in pixels [def: 400]")
     @magic_arguments.argument('-h', '--height', type=int, help="Default figure height in pixels [def: 300]")
-    @magic_arguments.argument('-r', '--resolution', type=int, help="Default figure resolution in dpi [def: 100]")
     def matlab_plot_mode(self, line):
         """Set up libpymcr to work with IPython notebooks
         
@@ -190,15 +149,15 @@ class MatlabMagics(Magics):
 
         Note that using (default) inline text output imposes a slight performance penalty.
 
-        For inlined figures, you can also set the default figure size and resolution with
+        For inlined figures, you can also set the default figure size with
 
-            In [8]: %matlab_plot_mode inline --width 400 --height 300 --resolution 150
+            In [8]: %matlab_plot_mode inline --width 400 --height 300
 
-        The values are in pixels for the width and height and dpi for resolution. A short cut:
+        The values are in pixels for the width and height. A short cut:
 
             In [9]: %matlab_plot_mode inline -w 400 -h 300 -r 150
 
-        Also works. The width, height and resolution only applies to inline figures.
+        also works. The width and height only applies to inline figures.
         You should use the usual Matlab commands to resize windowed figures.
         """
         args = magic_arguments.parse_argstring(self.matlab_plot_mode, line)
@@ -211,7 +170,6 @@ class MatlabMagics(Magics):
             self.plot_type = plot_type
             if args.width: self.width = args.width
             if args.height: self.height = args.height
-            if args.resolution: self.resolution = args.resolution
         elif plot_type == 'windowed':
             self.plot_type = plot_type
         else:
@@ -235,27 +193,25 @@ class MatlabMagics(Magics):
     @magic_arguments.magic_arguments()
     @magic_arguments.argument('-w', '--width', type=int, help="Default figure width in pixels [def: 400]")
     @magic_arguments.argument('-h', '--height', type=int, help="Default figure height in pixels [def: 300]")
-    @magic_arguments.argument('-r', '--resolution', type=int, help="Default figure resolution in dpi [def: 100]")
     def matlab_fig(self, line):
-        """Defines size and resolution of the next inline Matlab figure to be plotted
+        """Defines size of the next inline Matlab figure to be plotted
 
-        Use this magic function to define the figure size and resolution of the next figure
-        (and only that figure) without changing the default size and resolution.
+        Use this magic function to define the figure size of the next figure
+        (and only that figure) without changing the default figure size.
 
         Examples
         --------
-        Size and resolution is specified as options, any which is not defined here will use the default values
-        These values are reset after the figure is plotted (default: width=400, height=300, resolution=100)
+        The size is specified as options, any which is not defined here will use the default values
+        These values are reset after the figure is plotted (default: width=400, height=300)
 
-            In [1]: %matlab_fig -w 800 -h 200 -r 300
+            In [1]: %matlab_fig -w 800 -h 200
                     m.plot(-pi:0.01:pi, sin(-pi:0.01:pi), '-')
 
             In [2]: m.plot(-pi:0.01:pi, cos(-pi:0.01:pi), '-')
 
-        The sine graph in the first cell will be 800x200 at 300 dpi, whilst the cosine graph is 400x300 150 dpi.
+        The sine graph in the first cell will be 800x200, whilst the cosine graph is 400x300.
         """
         args = magic_arguments.parse_argstring(self.matlab_fig, line)
         width = args.width if args.width else self.width
         height = args.height if args.height else self.height
-        resolution = args.resolution if args.resolution else self.resolution
-        self.next_pars = {'width':width, 'height':height, 'resolution':resolution}
+        self.next_pars = {'width':width, 'height':height}
