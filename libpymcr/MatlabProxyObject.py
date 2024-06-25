@@ -102,9 +102,8 @@ class matlab_method:
         self.method = method
 
     def __call__(self, *args, **kwargs):
-        nreturn = get_nlhs(self.method)
+        nreturn = max(get_nlhs(self.method), 1)
         nargout = int(kwargs.pop('nargout') if 'nargout' in kwargs.keys() else nreturn)
-        nargout = max(min(nargout, nreturn), 1)
         ifc = self.proxy.interface
         # serialize keyword arguments:
         args += sum(kwargs.items(), ())
@@ -189,7 +188,7 @@ class MatlabProxyObject(object):
             return matlab_method(self, name)
 
     def __setattr__(self, name, value):
-        self.interface.call('subsasgn', self.handle, {'type':'.', 'subs':name}, value)
+        self.interface.call('subsasgn', self.handle, {'type':'.', 'subs':name}, unwrap(value, self.interface))
 
     def __repr__(self):
         return "<proxy for Matlab {} object>".format(self.interface.call('class', self.handle))
