@@ -1,3 +1,11 @@
+# [v0.1.8](https://github.com/pace-neutrons/libpymcr/compare/v0.1.7...v0.1.8)
+
+## Bugfixes
+
+* Implements a workaround for a changed `mxArray` layout in R2023b and newer (disables wrapping of Matlab arrays in Python).
+* Fixes issues with inline plots in Jupyter notebooks
+* Fix an issue with errors for Matlab functions which do not return any values, and an issue with recursive dot indexing
+
 # [v0.1.7](https://github.com/pace-neutrons/libpymcr/compare/v0.1.6...v0.1.7)
 
 ## New Features
