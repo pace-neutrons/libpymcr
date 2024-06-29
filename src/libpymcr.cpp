@@ -106,7 +106,7 @@ namespace libpymcr {
         // Specify MATLAB startup options
         _app = matlab::cpplib::initMATLABApplication(mode, options);
         _lib = matlab::cpplib::initMATLABLibrary(_app, ctfname);
-        _converter = pymat_converter(pymat_converter::NumpyConversion::WRAP);
+        _converter = pymat_converter(pymat_converter::NumpyConversion::COPY);
     }
 
 

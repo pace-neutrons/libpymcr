@@ -57,14 +57,16 @@ void* _get_data_pointer(matlab::data::Array arr) {
 // Wraps a Matlab array in a numpy array without copying (should work with all numeric types)
 template <typename T> PyObject* pymat_converter::matlab_to_python_t (matlab::data::Array arr, dt<T>) {
     // First checks if the array is not constructed from numpy data in the first place
-    PyObject* wrapper = is_wrapped_np_data(_get_data_pointer(arr));
-    if (wrapper != nullptr) {
-        // If so, just return the original numpy array, but need to INCREF it as returning new reference
-        if (!m_mex_flag) {
-            // For case where an np array is created in a mex file, its REFCNT was INC in the cache
-            Py_INCREF(wrapper);
+    if (m_numpy_conv_flag == NumpyConversion::WRAP) {
+        PyObject* wrapper = is_wrapped_np_data(_get_data_pointer(arr));
+        if (wrapper != nullptr) {
+            // If so, just return the original numpy array, but need to INCREF it as returning new reference
+            if (!m_mex_flag) {
+                // For case where an np array is created in a mex file, its REFCNT was INC in the cache
+                Py_INCREF(wrapper);
+            }
+            return wrapper;
         }
-        return wrapper;
     }
     std::vector<size_t> strides = {sizeof(T)};
     std::vector<size_t> dims = arr.getDimensions();
