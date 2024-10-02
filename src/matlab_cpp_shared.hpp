@@ -41,6 +41,7 @@ uintptr_t cppsharedlib_feval_with_completion(const uint64_t matlabHandle,
     size_t nrhs, void(*success)(void*, size_t, bool, matlab::data::impl::ArrayImpl**),
     void(*exception)(void*, size_t, bool, size_t, const void*), void* p, void* output,
     void* error, void(*write)(void*, const char16_t*, size_t), void(*deleter)(void*));
+bool cppsharedlib_cancel_feval_with_completion(uintptr_t taskHandle, bool allowInteruption);
 
 namespace {
     typedef std::basic_streambuf<char16_t> StreamBuffer;
@@ -48,6 +49,23 @@ namespace {
 }
 
 namespace matlab {
+
+  namespace cpplib {
+    template <class T> class FutureResult : public std::future<T> {
+        public:
+            FutureResult(std::future<T>&& a_future, uintptr_t a_taskreference)
+                : future(std::move(a_future)), taskReference(a_taskreference) {};
+            T get() { return future.get(); }
+            template<class Rep, class Period>
+            std::future_status wait_for(const std::chrono::duration<Rep, Period>& rel_time) const {
+                return future.wait_for(rel_time); }
+            bool cancel(bool allowInterrupt = true) {
+                return cppsharedlib_cancel_feval_with_completion(taskReference, allowInterrupt); }
+        private:
+            std::future<T> future;
+            uintptr_t taskReference;
+    };
+  }
 
   namespace execution {
  
@@ -157,7 +175,7 @@ namespace matlab {
             bool scalar,
             typename T = typename std::conditional<scalar, matlab::data::Array, std::vector<matlab::data::Array>>::type
         > 
-        std::future<T> _feval(const std::u16string &function, const size_t nlhs, const std::vector<matlab::data::Array> &args,
+        matlab::cpplib::FutureResult<T> _feval(const std::u16string &function, const size_t nlhs, const std::vector<matlab::data::Array> &args,
                  const SSBuffer &output = SSBuffer(), const SSBuffer &error = SSBuffer()) {
             size_t nrhs = args.size();
             matlab::data::impl::ArrayImpl** argsImpl = new matlab::data::impl::ArrayImpl*[nrhs];
@@ -170,7 +188,7 @@ namespace matlab {
             std::string utf8functionname = convertUTF16StringToASCIIString(function);
             uintptr_t handle = cppsharedlib_feval_with_completion(matlabHandle, utf8functionname.c_str(), nlhs, scalar,
                 argsImpl, nrhs, &_promise_data, &_promise_exception, p, output_, error_, &_write_buffer, &_delete_buffer);
-            return p->get_future();
+            return matlab::cpplib::FutureResult<T>(p->get_future(), handle);
         }
         std::vector<matlab::data::Array> feval(const std::u16string &function, const size_t nlhs,
                                                const std::vector<matlab::data::Array> &args,
@@ -187,15 +205,15 @@ namespace matlab {
             std::vector<matlab::data::Array> args = {arg};
             return _feval<true>(function, 1, args, output, error).get();
         }
-        std::future<std::vector<matlab::data::Array>> fevalAsync(const std::u16string &function, const size_t nlhs,
+        matlab::cpplib::FutureResult<std::vector<matlab::data::Array>> fevalAsync(const std::u16string &function, const size_t nlhs,
             const std::vector<matlab::data::Array> &args, const SSBuffer &output = SSBuffer(), const SSBuffer &error = SSBuffer()) {
             return _feval<false>(function, nlhs, args, output, error);
         }
-        std::future<matlab::data::Array> fevalAsync(const std::u16string &function, const std::vector<matlab::data::Array> &args,
+        matlab::cpplib::FutureResult<matlab::data::Array> fevalAsync(const std::u16string &function, const std::vector<matlab::data::Array> &args,
             const SSBuffer &output = SSBuffer(), const SSBuffer &error = SSBuffer()) {
             return _feval<true>(function, 1, args, output, error);
         }
-        std::future<matlab::data::Array> fevalAsync(const std::u16string &function, const matlab::data::Array &arg,
+        matlab::cpplib::FutureResult<matlab::data::Array> fevalAsync(const std::u16string &function, const matlab::data::Array &arg,
             const SSBuffer &output = SSBuffer(), const SSBuffer &error = SSBuffer()) {
             std::vector<matlab::data::Array> args = {arg};
             return _feval<true>(function, 1, args, output, error);
@@ -208,8 +226,6 @@ namespace matlab {
   } // namespace execution
 
   namespace cpplib {
-
-    template<typename T> using FutureResult = std::future<T>;
 
     enum class MATLABApplicationMode {
         OUT_OF_PROCESS = 0,

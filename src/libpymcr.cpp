@@ -29,15 +29,21 @@ namespace libpymcr {
     template <class T> T matlab_env::evalloop(matlab::cpplib::FutureResult<T> resAsync) {
         std::chrono::duration<int, std::milli> period(1);
         std::future_status status = resAsync.wait_for(std::chrono::duration<int, std::milli>(1));
+        bool error_already_set = false;
         while (status != std::future_status::ready) {
             status = resAsync.wait_for(period);
             // Prints outputs and errors
+            py::gil_scoped_acquire gil_acquire;
+            // Check if there is an interrupt on the Python side (needs GIL)
+            if (!error_already_set && PyErr_CheckSignals() != 0) {
+                resAsync.cancel();
+                error_already_set = true;
+            }
             if(_m_output.get()->in_avail() > 0) {
-                py::gil_scoped_acquire gil_acquire;
                 py::print(_m_output.get()->str(), py::arg("flush")=true);
-                py::gil_scoped_release gil_release;
                 _m_output.get()->str(std::basic_string<char16_t>());
             }
+            py::gil_scoped_release gil_release;
         }
         return resAsync.get();
     }
