@@ -40,7 +40,7 @@ namespace libpymcr {
                 error_already_set = true;
             }
             if(_m_output.get()->in_avail() > 0) {
-                py::print(_m_output.get()->str(), py::arg("flush")=true);
+                py::print(_m_output.get()->str(), py::arg("flush")=true, py::arg("end")="");
                 _m_output.get()->str(std::basic_string<char16_t>());
             }
             py::gil_scoped_release gil_release;
