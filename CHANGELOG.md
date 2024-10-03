@@ -1,3 +1,24 @@
+# [v0.2.0](https://github.com/pace-neutrons/libpymcr/compare/v0.1.8...v0.2.0)
+
+## New Features
+
+Adds a convenience function to create Matlab `function_handle`s in Python using the "@" (matrix-multiplication) operator:
+
+```
+sqw_fun = m @ spinwobj.horace_sqw
+```
+
+Note that the LHS must be the Matlab gateway object (`m = libpymcr.Matlab()`) and the RHS must be a proxied method of a Matlab object.
+Also, note that Matlab syntax like `fun = @(x) x+1` is not valid in Python, and should be constructed as `m.str2func('@(x)x+1')`.
+
+## Bugfixes
+
+* Fix changed `mxArray` layout in R2023b and newer versions of Matlab, so that wrapping arrays work again.
+* Nested calls to Matlab in Python functions called from Matlab now results in a `RuntimeError` rather than just hanging.
+* Pressing `Ctrl+C` in Python will now interrupt Matlab execution (but will not be instantaneous)
+* Matlab outputs now don't have extraneous newlines and look more like in Matlab.
+
+
 # [v0.1.8](https://github.com/pace-neutrons/libpymcr/compare/v0.1.7...v0.1.8)
 
 ## Bugfixes
