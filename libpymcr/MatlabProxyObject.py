@@ -137,6 +137,7 @@ class MatlabProxyObject(object):
         self.__dict__['handle'] = handle
         self.__dict__['interface'] = interface
         self.__dict__['_methods'] = []
+        self.__dict__['_class'] = self.interface.call('class', self.handle)
         #self.__dict__['_is_handle_class'] = self.interface.call('isa', self.handle, 'handle', nargout=1)
 
         # This cause performance slow downs for large data members and an recursion issue with
@@ -153,7 +154,11 @@ class MatlabProxyObject(object):
         Gets attributes from a MATLAB object
         :return: list of attribute names
         """
-        return self.interface.call('fieldnames', self.handle) + self.interface.call('properties', self.handle, nargout=1)
+        try:
+            fieldnames = self.interface.call('fieldnames', self.handle)
+        except RuntimeError:
+            fieldnames = []
+        return fieldnames + self.interface.call('properties', self.handle, nargout=1)
 
     def _getMethodNames(self):
         """
@@ -285,6 +290,18 @@ class MatlabProxyObject(object):
 
     def __pow__(self, other):
         return self.interface.call('mpower', self.handle, unwrap(other, self.interface), nargout=1)
+
+    def __call__(self, *args, **kwargs):
+        if self._class == 'function_handle':
+            nreturn = max(get_nlhs(), 1)
+            nargout = int(kwargs.pop('nargout') if 'nargout' in kwargs.keys() else nreturn)
+            # serialize keyword arguments:
+            args += sum(kwargs.items(), ())
+            args = unwrap(args, self.interface)
+            rv = self.interface.call(self.handle, *args, nargout=nargout)
+            return wrap(rv, self.interface)
+        else:
+            raise TypeError(f"Matlab '{self._class}' object is not callable")
 
     @property
     def __doc__(self):

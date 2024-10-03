@@ -66,7 +66,7 @@ def get_nret_from_dis(frame):
         return 1  # Probably in a multi-line call
 
 
-def get_nlhs(name):
+def get_nlhs(name=None):
     # Tries to get the number of return values for a named (Matlab) function
     # Assumes that it's called as a method of the `m` or Matlab() object
 
