@@ -18,14 +18,18 @@ void matlab_wrapper_del(PyObject* pyself) {
 }
 
 // Functions to handle Matlab mxArrays
-struct mxArray_header_2020a* _get_mxArray(Array arr) {
+struct mxArray_header_2020a* _get_mxArray(Array arr, double mlver) {
     matlab::data::impl::ArrayImpl* imp = reinterpret_cast<mArray*>(&arr)->get_ptr();
     struct impl_header_col_major* m0 = reinterpret_cast<struct impl_header_col_major*>(imp);
     struct impl_header_col_major* m1 = reinterpret_cast<struct impl_header_col_major*>(m0->data_ptr);
 #if defined __APPLE__
     return reinterpret_cast<struct mxArray_header_2020a*>(m1->data_ptr);
 #else
-    return reinterpret_cast<struct mxArray_header_2020a*>(m1->mxArray);
+    if (mlver > 10) {  // R2023b or newer
+        return reinterpret_cast<struct mxArray_header_2020a*>(m1->mxArray2);
+    } else {
+        return reinterpret_cast<struct mxArray_header_2020a*>(m1->mxArray);
+    }
 #endif
 }
 
@@ -43,9 +47,9 @@ PyObject* pymat_converter::is_wrapped_np_data(void *addr) {
     return nullptr;
 }
 
-void* _get_data_pointer(matlab::data::Array arr) {
+void* _get_data_pointer(matlab::data::Array arr, double mlver) {
     if (arr.getMemoryLayout() == matlab::data::MemoryLayout::COLUMN_MAJOR) {
-        struct mxArray_header_2020a* mx = _get_mxArray(arr);
+        struct mxArray_header_2020a* mx = _get_mxArray(arr, mlver);
         return mx->pr;
     } else {
         matlab::data::impl::ArrayImpl* imp = reinterpret_cast<mArray*>(&arr)->get_ptr();
@@ -58,7 +62,7 @@ void* _get_data_pointer(matlab::data::Array arr) {
 template <typename T> PyObject* pymat_converter::matlab_to_python_t (matlab::data::Array arr, dt<T>) {
     // First checks if the array is not constructed from numpy data in the first place
     if (m_numpy_conv_flag == NumpyConversion::WRAP) {
-        PyObject* wrapper = is_wrapped_np_data(_get_data_pointer(arr));
+        PyObject* wrapper = is_wrapped_np_data(_get_data_pointer(arr, m_MLVERSION));
         if (wrapper != nullptr) {
             // If so, just return the original numpy array, but need to INCREF it as returning new reference
             if (!m_mex_flag) {
@@ -287,6 +291,9 @@ template <typename T> Array pymat_converter::raw_to_matlab(char *raw, size_t sz,
 
 bool pymat_converter::release_buffer(matlab::data::Array arr) {
     // Hack to safely release a buffer for a no-copy Matlab array converted from numpy
+    if (m_MLVERSION > 24.1) { // R2024b or newer supports custom deleter so don't need hack
+        return true;
+    }
     if (m_numpy_conv_flag == NumpyConversion::COPY) {
         return true;
     }
@@ -300,7 +307,7 @@ bool pymat_converter::release_buffer(matlab::data::Array arr) {
     // to point to this instead of the numpy array. Then when this array is deleted Matlab will
     // free the newly created buffer instead of the numpy array which causes a heap memory error
     matlab::data::ArrayFactory factory;
-    struct mxArray_header_2020a* mx = _get_mxArray(arr);
+    struct mxArray_header_2020a* mx = _get_mxArray(arr, m_MLVERSION);
     long rc = (mx->refcount == nullptr) ? 1 : *(mx->refcount);
     if (mx->refcount == nullptr || *(mx->refcount) == 1) {
         buffer_ptr_t<double> buf = factory.createBuffer<double>(1);
@@ -585,7 +592,8 @@ matlab::data::Array pymat_converter::to_matlab(PyObject *input, bool mex_flag) {
     return python_to_matlab_single(input, factory);
 }
 
-pymat_converter::pymat_converter(NumpyConversion np_behaviour) : m_numpy_conv_flag(np_behaviour) {
+pymat_converter::pymat_converter(NumpyConversion np_behaviour, double matlab_version) 
+    : m_numpy_conv_flag(np_behaviour), m_MLVERSION(matlab_version) {
     m_py_matlab_wrapper_t = (PyTypeObject*) PyType_FromSpec(&spec_matlab_wrapper);
 }
 

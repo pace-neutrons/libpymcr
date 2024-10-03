@@ -83,7 +83,10 @@ namespace libpymcr {
         void *unknown3;
         void *unknown4;
 #endif
-        void *mxArray;           // Pointer to mxArray in the *data_ptr struct
+        void *mxArray;           // Pointer to mxArray in the *data_ptr struct (R2020a-R2023a)
+        void *ptr1;              // Unknown function pointer in >R2023b (deleter?)
+        void *ptr2;              // Unknown function pointer in >R2023b
+        void *mxArray2;          // Pointer to mxArray in >R2023b
     };
  
     // Header for a (new-style) row-major array
@@ -143,6 +146,7 @@ namespace libpymcr {
         std::vector< std::pair<matlab::data::Array, PyObject*> > m_py_cache;
         PyTypeObject* m_py_matlab_wrapper_t;
         bool m_mex_flag;
+        double m_MLVERSION;
         // Methods to convert from Matlab to Python
         PyObject* is_wrapped_np_data(void* addr);
         template <typename T> PyObject* matlab_to_python_t (matlab::data::Array arr, dt<T>);
@@ -166,7 +170,7 @@ namespace libpymcr {
         matlab::data::Array python_to_matlab_single(PyObject *input, matlab::data::ArrayFactory &factory);
     public:
         void clear_py_cache();
-        pymat_converter(NumpyConversion np_behaviour=NumpyConversion::COPY);
+        pymat_converter(NumpyConversion np_behaviour=NumpyConversion::COPY, double matlab_version=9.8);
         ~pymat_converter();
         matlab::data::Array to_matlab(PyObject *input, bool mex_flag=false);
         PyObject* to_python(matlab::data::Array input);

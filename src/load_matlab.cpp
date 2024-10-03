@@ -47,12 +47,15 @@ std::string _getMLversion(std::string mlroot) {
     }
     return _MLVERSTR;
 }
-void _loadlibraries(std::string matlabroot) {
+double _loadlibraries(std::string matlabroot) {
+    std::string mlver = _getMLversion(matlabroot);
     if (!_LIBCPPSHARED) {
         _LIBDATAARRAY = _loadlib(matlabroot + "/extern/bin/", "libMatlabDataArray");
-        _LIBCPPSHARED = _loadlib(matlabroot + "/runtime/", "libMatlabCppSharedLib", _getMLversion(matlabroot));
+        _LIBCPPSHARED = _loadlib(matlabroot + "/runtime/", "libMatlabCppSharedLib", mlver);
         _LIBMEX = _loadlib(matlabroot + "/bin/", "libmex");
     }
+    char *end;
+    return std::strtod(mlver.c_str(), &end);
 }
 void _checklibs() {
     if (!_LIBDATAARRAY || !_LIBCPPSHARED || !_LIBMEX) {
