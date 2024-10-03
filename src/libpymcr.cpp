@@ -118,12 +118,12 @@ namespace libpymcr {
 
     // Constructor
     matlab_env::matlab_env(const std::u16string ctfname, std::string matlabroot, std::vector<std::u16string> options) {
-        _loadlibraries(matlabroot);
+        _MLVER = _loadlibraries(matlabroot);
         auto mode = matlab::cpplib::MATLABApplicationMode::IN_PROCESS;
         // Specify MATLAB startup options
         _app = matlab::cpplib::initMATLABApplication(mode, options);
         _lib = matlab::cpplib::initMATLABLibrary(_app, ctfname);
-        _converter = pymat_converter(pymat_converter::NumpyConversion::COPY);
+        _converter = pymat_converter(pymat_converter::NumpyConversion::WRAP, _MLVER);
         _in_evaluation = false;
     }
 

@@ -24,6 +24,7 @@ namespace libpymcr {
         size_t _parse_inputs(std::vector<matlab::data::Array>& m_args, py::args py_args, py::kwargs& py_kwargs);
         template <class T> T evalloop(matlab::cpplib::FutureResult<T> resAsync);
         bool _in_evaluation;
+        double _MLVER;
     public:
         py::object feval(const std::u16string &funcname, py::args args, py::kwargs& kwargs);
         py::object call(py::args args, py::kwargs& kwargs);
