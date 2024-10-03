@@ -50,6 +50,10 @@ namespace libpymcr {
 
     py::object matlab_env::feval(const std::u16string &funcname, py::args args, py::kwargs& kwargs) {
         // Calls Matlab function
+        if (_in_evaluation) {
+            throw std::runtime_error("Cannot call Matlab from a nested Python function.");
+        }
+        _in_evaluation = true;
         const size_t nlhs = 0;
         // Clears the streams
         _m_output.get()->str(std::basic_string<char16_t>());
@@ -60,14 +64,20 @@ namespace libpymcr {
         size_t nargout = _parse_inputs(m_args, args, kwargs);
         // Release the GIL to call Matlab (PyBind automatically acquires GIL in all defined functions)
         py::gil_scoped_release gil_release;
-        if (nargout == 1) {
-            if (m_args.size() == 1) {
-                outputs.push_back(evalloop(_lib->fevalAsync(funcname, m_args[0], _m_output_buf, _m_error_buf)));
+        try {
+            if (nargout == 1) {
+                if (m_args.size() == 1) {
+                    outputs.push_back(evalloop(_lib->fevalAsync(funcname, m_args[0], _m_output_buf, _m_error_buf)));
+                } else {
+                    outputs.push_back(evalloop(_lib->fevalAsync(funcname, m_args, _m_output_buf, _m_error_buf)));
+                }
             } else {
-                outputs.push_back(evalloop(_lib->fevalAsync(funcname, m_args, _m_output_buf, _m_error_buf)));
+                outputs = evalloop(_lib->fevalAsync(funcname, nargout, m_args, _m_output_buf, _m_error_buf));
             }
-        } else {
-            outputs = evalloop(_lib->fevalAsync(funcname, nargout, m_args, _m_output_buf, _m_error_buf));
+        }
+        catch(...) {
+            _in_evaluation = false;
+            throw;
         }
         // Re-aquire the GIL
         py::gil_scoped_acquire gil_acquire;
@@ -97,6 +107,7 @@ namespace libpymcr {
         }
         // Now clear temporary Matlab arrays created from Numpy array data inputs
         _converter.clear_py_cache();
+        _in_evaluation = false;
         return retval;
     }
 
@@ -113,6 +124,7 @@ namespace libpymcr {
         _app = matlab::cpplib::initMATLABApplication(mode, options);
         _lib = matlab::cpplib::initMATLABLibrary(_app, ctfname);
         _converter = pymat_converter(pymat_converter::NumpyConversion::COPY);
+        _in_evaluation = false;
     }
 
 
