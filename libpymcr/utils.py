@@ -313,3 +313,41 @@ def checkPath(runtime_version, mlPath=None, error_if_not_found=True, suppress_ou
         #    print('Found: ' + os.environ.get(obj.path_var))
 
     return mlPath
+
+
+def _tobestripped(info):
+    if 'mex' in info.filename and 'auth' not in info.filename:
+        return True
+    if info.filename.endswith('mcstas'):
+        return True
+    return False
+
+
+def stripmex(version_string, ctfdir='CTF', writemex=False):
+    # Strips out mex and large files from a zipped CTF.
+    ctffile = os.path.join(ctfdir, f'pace_{version_string[1:]}.ctf')
+    if not os.path.exists(ctffile):
+        raise RuntimeError(f'CTF "{ctffile}" not created.')
+    with zipfile.ZipFile(ctffile, 'r') as ctf_in:
+        if writemex:
+            with zipfile.ZipFile(os.path.join(ctfdir, f'mexes.zip'), 'w', zipfile.ZIP_LZMA) as ctf_out:
+                for info in [v for v in ctf_in.infolist() if _tobestripped(v)]:
+                    ctf_out.writestr(info, ctf_in.read(info))
+        with zipfile.ZipFile(os.path.join(ctfdir, f'nomex_{version_string[1:]}.zip'), 'w', zipfile.ZIP_LZMA) as ctf_out:
+            for info in [v for v in ctf_in.infolist() if not _tobestripped(v)]:
+                ctf_out.writestr(info, ctf_in.read(info))
+
+
+def recombinemex(version_string, ctfdir):
+    mexes = os.path.join(ctfdir, 'mexes.zip')
+    ctfstub = os.path.join(ctfdir, f'nomex_{version_string[1:]}.zip')
+    if not os.path.exists(mexes) or not os.path.exists(ctfstub):
+        raise RuntimeError(f'Mexes archive "{mexes}" or ctf stub "{ctfstub}" does not exist.')
+    with zipfile.ZipFile(os.path.join(ctfdir, f'pace_{version_string[1:]}.ctf'), 'w', zipfile.ZIP_DEFLATED) as ctf_out:
+        with zipfile.ZipFile(ctfstub, 'r') as zip_in:
+            for info in [v for v in zip_in.infolist()]:
+                ctf_out.writestr(info, zip_in.read(info))
+        with zipfile.ZipFile(mexes, 'r') as zip_in:
+            for info in [v for v in zip_in.infolist()]:
+                ctf_out.writestr(info, zip_in.read(info))
+
