@@ -12,7 +12,7 @@ on:
     inputs:
       py_version:
         type: choice
-        options: ["3.7", "3.8", "3.9", "3.10", "3.11"]
+        options: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
 
 concurrency :
   group: ${{ github.workflow }}-${{ github.ref == 'refs/head/main' && github.run_number || github.ref }}
@@ -29,7 +29,7 @@ env:
       "pyvers": {
         "push": ["3.8"],
         "pull_request": ["3.8"],
-        "release": ["3.7", "3.8", "3.9", "3.10", "3.11"],
+        "release": ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13"],
         "workflow_dispatch": ["WORKFLOW_PYVER"]
       },
       "os_map": {
@@ -43,9 +43,14 @@ env:
           "tag": "win_amd64",
           "mlprefix": ""
         },
-        "macos-12": {
+        "macos-13": {
           "mlver": "R2020a",
           "tag": "macosx_x86_64",
+          "mlprefix": ""
+        },
+        "macos-14": {
+          "mlver": "R2020a",
+          "tag": "macosx_arm64",
           "mlprefix": ""
         }
       }
@@ -58,7 +63,7 @@ jobs:
     name: Create Matlab cache, ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, windows-2022, macos-12]
+        os: [ubuntu-22.04, windows-2022, macos-13, macos-14]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -109,7 +114,7 @@ jobs:
     # OS strategy matrix must match key in JSONSTR.os_map above
     strategy:
       matrix:
-        os: [ubuntu-22.04, windows-2022, macos-12]
+        os: [ubuntu-22.04, windows-2022, macos-13, macos-14]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -140,7 +145,7 @@ jobs:
           env
       - name: Set up MATLAB
         if: ${{ matrix.os == 'ubuntu-22.04' }}
-        uses: matlab-actions/setup-matlab@v1.2.4
+        uses: matlab-actions/setup-matlab@v2.3.0
         with:
           release: ${{ env.MLVER }}
       - uses: actions/cache/restore@v4
@@ -154,7 +159,7 @@ jobs:
           path: gists
           key: ${{ runner.os }}-gists
           fail-on-cache-miss: true
-      - uses: pypa/cibuildwheel@v2.17.0
+      - uses: pypa/cibuildwheel@v2.22.0
         env:
           CIBW_BUILD: ${{ env.CIBW }}
           CIBW_ENVIRONMENT: >-
