@@ -33,88 +33,38 @@ env:
         "workflow_dispatch": ["WORKFLOW_PYVER"]
       },
       "os_map": {
-        "ubuntu-22.04": {
-          "mlver": "R2020a",
+        "ubuntu-24.04": {
+          "mlver": "R2024a",
           "tag": "manylinux_x86_64",
           "mlprefix": "/host/"
         },
         "windows-2022": {
-          "mlver": "R2021a",
+          "mlver": "R2024a",
           "tag": "win_amd64",
           "mlprefix": ""
         },
         "macos-13": {
-          "mlver": "R2020a",
+          "mlver": "R2024a",
           "tag": "macosx_x86_64",
           "mlprefix": ""
         },
         "macos-14": {
-          "mlver": "R2020a",
+          "mlver": "R2024a",
           "tag": "macosx_arm64",
           "mlprefix": ""
         }
       }
     }
   # Must match what is stored in the gists
-  MCRVER: R2020a
+  MCRVER: R2024a
 
 jobs:
-  cache_matlab:
-    name: Create Matlab cache, ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-22.04, windows-2022, macos-13, macos-14]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Cache MCR
-        if: ${{ matrix.os != 'ubuntu-22.04' }}
-        id: cache-mcr
-        uses: actions/cache@v4
-        with:
-          path: mcr
-          key: ${{ runner.os }}-matlab-${{ env.MCRVER }}-mcr
-          lookup-only: true
-      - name: Cache gists
-        id: cache-gists
-        uses: actions/cache@v4
-        with:
-          path: gists
-          key: ${{ runner.os }}-gists
-          lookup-only: true
-      - name: Download gists 
-        if: ${{ steps.cache-gists.outputs.cache-hit != 'true' }}
-        run: |
-          mkdir -p gists
-          pip3 install requests
-          python3 gist_test_ctf.py --get --token=${{ secrets.GH_GIST_TOKEN }} --dir gists
-      - name: Install Mac MCR
-        if: ${{ matrix.os == 'macos-12' && steps.cache-mcr.outputs.cache-hit != 'true' }}
-        run: |
-          mkdir -p mcr
-          unzip -d . -q gists/pace_neutrons_installer.zip
-          sudo ./pace_neutrons_installer/Contents/MacOS/setup -mode silent -agreeToLicense yes
-          sleep 10
-          while [[ ! -z $(ps aux |grep installer | grep mathworks) ]]; do sleep 10; done
-          cp -r /Applications/MATLAB/MATLAB_Runtime/v98/* mcr/
-      - name: Install Win MCR
-        if: ${{ matrix.os == 'windows-2022' && steps.cache-mcr.outputs.cache-hit != 'true' }}
-        run: |
-          mkdir -p mcr
-          powershell -Command "gists\pace_neutrons_installer.exe -mode silent -agreeToLicense yes"
-          sleep 10
-          powershell -Command "while(Get-Process pace_neutrons_installer -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 10 }"
-          cp -r /c/Program\ Files/MATLAB/MATLAB\ Runtime/v98/* mcr/
-
   build_and_test:
     name: Build and test, ${{ matrix.os }}, py${{ matrix.pyver }}
-    needs: cache_matlab
     # OS strategy matrix must match key in JSONSTR.os_map above
     strategy:
       matrix:
-        os: [ubuntu-22.04, windows-2022, macos-13, macos-14]
+        os: [ubuntu-24.04, windows-2022, macos-13]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -137,28 +87,24 @@ jobs:
           echo MLVER=$MLVER >> $GITHUB_ENV
           echo MLPREFIX=`echo $JSONSTR | jq ".os_map[\"${{ matrix.os }}\"].mlprefix" | sed s/\"//g` >> $GITHUB_ENV
           echo "HOSTDIRECTORY=`pwd`" >> $GITHUB_ENV
-          if [ "$RUNNER_OS" == "Linux" ]; then
-            echo "MATLABEXECUTABLE=/usr/local/MATLAB/$MLVER/bin/matlab" >> $GITHUB_ENV;
-          else
-            echo "MATLABEXECUTABLE=`pwd`/mcr/bin/matlab" >> $GITHUB_ENV;
-          fi
-          env
       - name: Set up MATLAB
-        if: ${{ matrix.os == 'ubuntu-22.04' }}
         uses: matlab-actions/setup-matlab@v2.3.0
         with:
           release: ${{ env.MLVER }}
-      - uses: actions/cache/restore@v4
-        if: ${{ matrix.os != 'ubuntu-22.04' }}
+          products: MATLAB_Compiler_SDK
+      - name: Set Matlab env
+        run: |
+          echo "MATLABEXECUTABLE=`which matlab`" >> $GITHUB_ENV;
+          env
+      - uses: mamba-org/setup-micromamba@v1
         with:
-          path: mcr
-          key: ${{ runner.os }}-matlab-${{ env.MCRVER }}-mcr
-          fail-on-cache-miss: true
-      - uses: actions/cache/restore@v4
-        with:
-          path: gists
-          key: ${{ runner.os }}-gists
-          fail-on-cache-miss: true
+          cache-downloads: true
+      - name: Download gists 
+        run: |
+          $MAMBA_EXE create -n gistsenv -c conda-forge python=3.9 numpy requests
+          eval "$($MAMBA_EXE shell activate gistsenv)"
+          mkdir -p gists
+          python gist_test_ctf.py --get --token=${{ secrets.GH_GIST_TOKEN }} --dir gists
       - uses: pypa/cibuildwheel@v2.22.0
         env:
           CIBW_BUILD: ${{ env.CIBW }}
@@ -166,17 +112,13 @@ jobs:
             MATLABEXECUTABLE="${{ env.MLPREFIX }}${{ env.MATLABEXECUTABLE }}"
             HOSTDIRECTORY="${{ env.MLPREFIX }}${{ env.HOSTDIRECTORY }}"
           CIBW_BUILD_VERBOSITY: 1
-          MACOSX_DEPLOYMENT_TARGET: "10.15"
-      - uses: mamba-org/setup-micromamba@v1
-        with:
-          cache-downloads: true
       - name: Install wheels and run test
         run: |
           # set -e makes sure the script fails if any command in the loop fails
           set -e
           cp -f gists/* test/
           for pyver in $(echo $PYVERS | sed s/[\"\']//g); do
-            $MAMBA_EXE create -n py$pyver -c conda-forge python=$pyver numpy six
+            $MAMBA_EXE create -n py$pyver -c conda-forge python=$pyver numpy six requests
             eval "$($MAMBA_EXE shell activate py$pyver)"
             python -m pip install wheelhouse/*cp$(echo $pyver | sed s/\\.//)*
             cd test
@@ -188,14 +130,14 @@ jobs:
       - name: Upload release wheels
         if: ${{ github.event_name == 'release' }}
         run: |
-          pip3 install requests numpy
-          python3 release.py --notest --github --token=${{ secrets.GH_GIST_TOKEN }}
-      #- name: Setup tmate
-      #  if: ${{ failure() }}
-      #  uses: mxschmitt/action-tmate@v3
+          eval "$($MAMBA_EXE shell activate gistsenv)"
+          python release.py --notest --github --token=${{ secrets.GH_GIST_TOKEN }}
+      - name: Setup tmate
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}_artifacts.zip
           path: |
             wheelhouse/*
-            **/*.mex[awmaci]*64
+            **/*.mex*
