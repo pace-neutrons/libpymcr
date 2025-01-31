@@ -1,8 +1,7 @@
 import argparse, requests, json, os, base64
 
-FILES = ['test_R2020a.ctf', 'test_R2021a.ctf', 'pace_neutrons_installer.exe', 'pace_neutrons_installer.zip']
-GIST_ID = ['7389c37c89aed787c8a200c993fb67af', 'b595469518fbec7d9e293cf98bc123d6',
-           'd13ac4e315dc0e0b95506c2b8bb4ef2d', '6a1606ced1d38118ec0e8d230048f372']
+FILES = ['test_R2024a.ctf']
+GIST_ID = ['2727bd8d670e42cd27e12d8c51582868']
 
 def main():
     parser = argparse.ArgumentParser()
