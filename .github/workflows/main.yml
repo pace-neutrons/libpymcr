@@ -12,7 +12,7 @@ on:
     inputs:
       py_version:
         type: choice
-        options: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        options: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
 
 concurrency :
   group: ${{ github.workflow }}-${{ github.ref == 'refs/head/main' && github.run_number || github.ref }}
@@ -27,9 +27,9 @@ env:
   JSONSTR: |
     {
       "pyvers": {
-        "push": ["3.8"],
-        "pull_request": ["3.8"],
-        "release": ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13"],
+        "push": ["3.8", "3.13"],
+        "pull_request": ["3.8", "3.13"],
+        "release": ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"],
         "workflow_dispatch": ["WORKFLOW_PYVER"]
       },
       "os_map": {
@@ -64,7 +64,7 @@ jobs:
     # OS strategy matrix must match key in JSONSTR.os_map above
     strategy:
       matrix:
-        os: [ubuntu-24.04, windows-2022, macos-13]
+        os: [ubuntu-24.04, windows-2022, macos-13, macos-14]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -106,12 +106,14 @@ jobs:
           mkdir -p gists
           python gist_test_ctf.py --get --token=${{ secrets.GH_GIST_TOKEN }} --dir gists
       - uses: pypa/cibuildwheel@v2.22.0
+        if: ${{ matrix.os != 'macos-14' }}  # cibuildwheel builds x86_64 on macos-14!!
         env:
           CIBW_BUILD: ${{ env.CIBW }}
           CIBW_ENVIRONMENT: >-
             MATLABEXECUTABLE="${{ env.MLPREFIX }}${{ env.MATLABEXECUTABLE }}"
             HOSTDIRECTORY="${{ env.MLPREFIX }}${{ env.HOSTDIRECTORY }}"
           CIBW_BUILD_VERBOSITY: 1
+          MACOSX_DEPLOYMENT_TARGET: "11"
       - name: Install wheels and run test
         run: |
           # set -e makes sure the script fails if any command in the loop fails
@@ -120,7 +122,14 @@ jobs:
           for pyver in $(echo $PYVERS | sed s/[\"\']//g); do
             $MAMBA_EXE create -n py$pyver -c conda-forge python=$pyver numpy six requests
             eval "$($MAMBA_EXE shell activate py$pyver)"
-            python -m pip install wheelhouse/*cp$(echo $pyver | sed s/\\.//)*
+            pytag="cp$(echo $pyver | sed s/\\.//)"
+            if [[ $OSTYPE == "darwin23" ]]; then
+              echo "Compiling package for MacOS-14"
+              python -m pip install delocate
+              python -m pip wheel . --wheel-dir=dist --no-deps -v
+              delocate-wheel --require-archs arm64 -w wheelhouse -v dist/*${pytag}*
+            fi
+            python -m pip install wheelhouse/*${pytag}*
             cd test
             # Sometimes the test results in a segfault on exit
             python run_test.py || true
@@ -132,9 +141,9 @@ jobs:
         run: |
           eval "$($MAMBA_EXE shell activate gistsenv)"
           python release.py --notest --github --token=${{ secrets.GH_GIST_TOKEN }}
-      - name: Setup tmate
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
+      #- name: Setup tmate
+      #  if: ${{ failure() }}
+      #  uses: mxschmitt/action-tmate@v3
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}_artifacts.zip

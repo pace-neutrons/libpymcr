@@ -11,7 +11,11 @@ void *_loadlib(std::string path, const char* libname, std::string mlver) {
     if (mlver.length() > 0)
         mlver = "." + mlver;
 #if defined __APPLE__
-    void* lib = dlopen((path + "/maci64/" + libname + mlver + ".dylib").c_str(), RTLD_LAZY);
+    std::string arch = "/maci64/";
+#if defined __arm64__
+    arch = "/maca64/";
+#endif
+    void* lib = dlopen((path + arch + libname + mlver + ".dylib").c_str(), RTLD_LAZY);
 #else
     void* lib = dlopen((path + "/glnxa64/" + libname + ".so" + mlver).c_str(), RTLD_LAZY);
 #endif
