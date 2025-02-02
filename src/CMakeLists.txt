@@ -13,7 +13,7 @@ mcr_add_mex(
     SRC call_python.cpp type_converter.cpp load_matlab.cpp
 )
 target_include_directories(call_python PUBLIC ${PYTHON_INCLUDE_DIRS})
-target_include_directories(call_python PUBLIC "${pybind11_SOURCE_DIR}/include")
+target_include_directories(call_python PUBLIC ${pybind11_INCLUDE_DIR})
 ##target_link_libraries(call_python type_converter)
 ## Explicitly does not link with Matlab libraries (we will call them with dlopen etc)
 set_property(TARGET call_python PROPERTY LINK_LIBRARIES "")
