@@ -53,7 +53,6 @@ namespace libpymcr {
         if (_in_evaluation) {
             throw std::runtime_error("Cannot call Matlab from a nested Python function.");
         }
-        _in_evaluation = true;
         const size_t nlhs = 0;
         // Clears the streams
         _m_output.get()->str(std::basic_string<char16_t>());
@@ -64,6 +63,7 @@ namespace libpymcr {
         size_t nargout = _parse_inputs(m_args, args, kwargs);
         // Release the GIL to call Matlab (PyBind automatically acquires GIL in all defined functions)
         py::gil_scoped_release gil_release;
+        _in_evaluation = true;
         try {
             if (nargout == 1) {
                 if (m_args.size() == 1) {
@@ -79,6 +79,7 @@ namespace libpymcr {
             _in_evaluation = false;
             throw;
         }
+        _in_evaluation = false;
         // Re-aquire the GIL
         py::gil_scoped_acquire gil_acquire;
         // Prints outputs and errors
@@ -107,7 +108,6 @@ namespace libpymcr {
         }
         // Now clear temporary Matlab arrays created from Numpy array data inputs
         _converter.clear_py_cache();
-        _in_evaluation = false;
         return retval;
     }
 
