@@ -322,17 +322,19 @@ bool pymat_converter::release_buffer(matlab::data::Array arr) {
 matlab::data::Array pymat_converter::python_array_to_matlab(PyObject *result, matlab::data::ArrayFactory &factory) {
     // Cast the result to the PyArray C struct and its corresponding dtype struct
     py::detail::PyArray_Proxy *arr = py::detail::array_proxy(result);
-    py::detail::PyArrayDescr_Proxy *dtype = py::detail::array_descriptor_proxy(arr->descr);
+    py::dtype dtype = py::reinterpret_borrow<py::dtype>(arr->descr);
+    ssize_t elsize = dtype.itemsize();
+    char kind = dtype.kind();
     if (arr->nd == 0) {            // 0-dimensional array - return a scalar
-        if (dtype->kind == 'f') {
-            if (dtype->elsize == sizeof(double)) return factory.createScalar(*((double*)(arr->data)));
-            else if (dtype->elsize == sizeof(float)) return factory.createScalar(*((float*)(arr->data)));
-        } else if (dtype->kind == 'c') {
-            if (dtype->elsize == sizeof(std::complex<double>)) return factory.createScalar(*((std::complex<double>*)(arr->data)));
-            else if (dtype->elsize == sizeof(std::complex<float>)) return factory.createScalar(*((std::complex<float>*)(arr->data)));
+        if (kind == 'f') {
+            if (elsize == sizeof(double)) return factory.createScalar(*((double*)(arr->data)));
+            else if (elsize == sizeof(float)) return factory.createScalar(*((float*)(arr->data)));
+        } else if (kind == 'c') {
+            if (elsize == sizeof(std::complex<double>)) return factory.createScalar(*((std::complex<double>*)(arr->data)));
+            else if (elsize == sizeof(std::complex<float>)) return factory.createScalar(*((std::complex<float>*)(arr->data)));
         }
     }
-    if (dtype->elsize == 0) {
+    if (elsize == 0) {
         throw std::runtime_error("Cannot convert heterogeneous numpy arrays to Matlab");
     }
     std::vector<size_t> dims;
@@ -352,7 +354,7 @@ matlab::data::Array pymat_converter::python_array_to_matlab(PyObject *result, ma
 
     char *d = arr->data;
     ssize_t *strd = arr->strides;
-    switch(dtype->type_num) {
+    switch(dtype.num()) {
         case py::detail::npy_api::NPY_DOUBLE_:    return raw_to_matlab<double>(d, numel, dims, strd, fc_cont, factory, result);
         case py::detail::npy_api::NPY_FLOAT_:     return raw_to_matlab<float>(d, numel, dims, strd, fc_cont, factory, result);
         case py::detail::npy_api::NPY_CDOUBLE_:   return raw_to_matlab<std::complex<double>>(d, numel, dims, strd, fc_cont, factory, result);
