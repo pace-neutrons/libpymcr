@@ -2,11 +2,9 @@
 #define TYPECONVERTER_H
 
 #include "load_matlab.hpp"
+#include "matlab_data_array.hpp"
 #include <cstddef>
 using ssize_t = std::ptrdiff_t;
-
-#include <MatlabDataArray/TypedArray.hpp>
-#include <MatlabDataArray/ArrayFactory.hpp>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -159,15 +157,15 @@ namespace libpymcr {
         // Methods to convert from Python to Matlab
         template <typename T> Array raw_to_matlab(char *raw, size_t sz, std::vector<size_t> dims,
                                                   ssize_t *strides, int f_or_c_continuous,
-                                                  matlab::data::ArrayFactory &factory, PyObject* obj);
+                                                  matlab::data::mArrayFactory &factory, PyObject* obj);
         bool release_buffer(matlab::data::Array arr);
-        matlab::data::Array python_array_to_matlab(PyObject *result, matlab::data::ArrayFactory &factory);
-        template <typename T> Array fill_vec_from_pyobj(std::vector<PyObject*> &objs, matlab::data::ArrayFactory &factory);
-        CharArray python_string_to_matlab(PyObject *result, matlab::data::ArrayFactory &factory);
-        Array listtuple_to_cell(PyObject *result, matlab::data::ArrayFactory &factory);
-        StructArray python_dict_to_matlab(PyObject *result, matlab::data::ArrayFactory &factory);
-        matlab::data::Array wrap_python_function(PyObject *input, matlab::data::ArrayFactory &factory);
-        matlab::data::Array python_to_matlab_single(PyObject *input, matlab::data::ArrayFactory &factory);
+        matlab::data::Array python_array_to_matlab(PyObject *result, matlab::data::mArrayFactory &factory);
+        template <typename T> Array fill_vec_from_pyobj(std::vector<PyObject*> &objs, matlab::data::mArrayFactory &factory);
+        CharArray python_string_to_matlab(PyObject *result, matlab::data::mArrayFactory &factory);
+        Array listtuple_to_cell(PyObject *result, matlab::data::mArrayFactory &factory);
+        StructArray python_dict_to_matlab(PyObject *result, matlab::data::mArrayFactory &factory);
+        matlab::data::Array wrap_python_function(PyObject *input, matlab::data::mArrayFactory &factory);
+        matlab::data::Array python_to_matlab_single(PyObject *input, matlab::data::mArrayFactory &factory);
     public:
         void clear_py_cache();
         pymat_converter(NumpyConversion np_behaviour=NumpyConversion::COPY, double matlab_version=9.8);

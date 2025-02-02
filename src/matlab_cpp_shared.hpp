@@ -28,8 +28,7 @@
 #include <algorithm>
 #include <future>
 #include <exception>
-#include <MatlabDataArray/CharArray.hpp>
-#include <MatlabDataArray/StructArray.hpp>
+#include "matlab_data_array.hpp"
 
 void runtime_create_session(char16_t** options, size_t size);
 void runtime_terminate_session();
