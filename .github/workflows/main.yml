@@ -64,7 +64,7 @@ jobs:
     # OS strategy matrix must match key in JSONSTR.os_map above
     strategy:
       matrix:
-        os: [ubuntu-24.04, windows-2022, macos-13, macos-14]
+        os: [macos-14]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -92,6 +92,10 @@ jobs:
         with:
           release: ${{ env.MLVER }}
           products: MATLAB_Compiler_SDK
+      - name: Download Matlab command runner
+        uses: matlab-actions/run-command@v2
+        with:
+          command: "ver"
       - name: Set Matlab env
         run: |
           echo "MATLABEXECUTABLE=`which matlab`" >> $GITHUB_ENV;
@@ -141,9 +145,9 @@ jobs:
         run: |
           eval "$($MAMBA_EXE shell activate gistsenv)"
           python release.py --notest --github --token=${{ secrets.GH_GIST_TOKEN }}
-      #- name: Setup tmate
-      #  if: ${{ failure() }}
-      #  uses: mxschmitt/action-tmate@v3
+      - name: Setup tmate
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}_artifacts.zip
