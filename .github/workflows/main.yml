@@ -33,17 +33,17 @@ env:
       },
       "os_map": {
         "ubuntu-24.04": {
-          "mlver": "R2024b",
+          "mlver": "R2021a",
           "tag": "manylinux_x86_64",
           "mlprefix": "/host/"
         },
         "windows-2022": {
-          "mlver": "R2024b",
+          "mlver": "R2023a",
           "tag": "win_amd64",
           "mlprefix": ""
         },
         "macos-13": {
-          "mlver": "R2024b",
+          "mlver": "R2024a",
           "tag": "macosx_x86_64",
           "mlprefix": ""
         },
@@ -96,7 +96,7 @@ jobs:
       - uses: mamba-org/setup-micromamba@v1
         with:
           cache-downloads: true
-      - name: Download gists 
+      - name: Download gists
         run: |
           $MAMBA_EXE create -n gistsenv -c conda-forge python=3.9 numpy requests
           eval "$($MAMBA_EXE shell activate gistsenv)"
@@ -128,9 +128,7 @@ jobs:
             fi
             python -m pip install wheelhouse/*${pytag}*
             cd test
-            # Sometimes the test results in a segfault on exit
-            python run_test.py || true
-            test -f success
+            python run_test.py
             cd ..
           done
       - name: Upload release wheels
@@ -138,9 +136,9 @@ jobs:
         run: |
           eval "$($MAMBA_EXE shell activate gistsenv)"
           python release.py --notest --github --token=${{ secrets.GH_GIST_TOKEN }}
-      - name: Setup tmate
-        if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3
+      #- name: Setup tmate
+      #  if: ${{ failure() }}
+      #  uses: mxschmitt/action-tmate@v3
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}_artifacts.zip

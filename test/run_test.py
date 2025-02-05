@@ -15,6 +15,7 @@ class PacePythonTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.success = 0
         import libpymcr
         for ver in _VERSIONS:
             mlPath = libpymcr.utils.checkPath(ver['version'], error_if_not_found=False)
@@ -24,11 +25,6 @@ class PacePythonTest(unittest.TestCase):
                 return
         raise RuntimeError('Could not find a valid Matlab version')
 
-    @classmethod
-    def tearDownClass(cls):
-        with open('success', 'w') as f:
-            f.write('success')
-    
     def test_numpy_basics(self):
         # Tests some basic functions
         magic = self.m.magic(3)
