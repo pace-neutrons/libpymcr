@@ -20,6 +20,7 @@ class PacePythonTest(unittest.TestCase):
             mlPath = libpymcr.utils.checkPath(ver['version'], error_if_not_found=False)
             if mlPath is not None:
                 cls.m = libpymcr.Matlab(ver['file'], mlPath)
+                print(f'Using Matlab version {ver["version"]}')
                 return
         raise RuntimeError('Could not find a valid Matlab version')
 

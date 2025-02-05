@@ -37,6 +37,17 @@ struct mxArray_header_2020a* _get_mxArray(Array arr, double mlver) {
 #endif
 }
 
+struct mxArray_header_2024b* _get_mxArray24b(Array arr) {
+    matlab::data::impl::ArrayImpl* imp = reinterpret_cast<mArray*>(&arr)->get_ptr();
+    struct impl_header_col_major* m0 = reinterpret_cast<struct impl_header_col_major*>(imp);
+    struct impl_header_col_major* m1 = reinterpret_cast<struct impl_header_col_major*>(m0->data_ptr);
+#if defined __APPLE__
+    return reinterpret_cast<struct mxArray_header_2024b*>(m1->dims);
+#else
+    return reinterpret_cast<struct mxArray_header_2024b*>(m1->mxArray3);
+#endif
+}
+
 // -------------------------------------------------------------------------------------------------------
 // Code to translate Matlab types to Python types
 // -------------------------------------------------------------------------------------------------------
@@ -53,8 +64,13 @@ PyObject* pymat_converter::is_wrapped_np_data(void *addr) {
 
 void* _get_data_pointer(matlab::data::Array arr, double mlver) {
     if (arr.getMemoryLayout() == matlab::data::MemoryLayout::COLUMN_MAJOR) {
-        struct mxArray_header_2020a* mx = _get_mxArray(arr, mlver);
-        return mx->pr;
+        if (mlver > 24.1) {  // R2024b or newer
+            struct mxArray_header_2024b* mx = _get_mxArray24b(arr);
+            return mx->pr;
+        } else {
+            struct mxArray_header_2020a* mx = _get_mxArray(arr, mlver);
+            return mx->pr;
+        }
     } else {
         matlab::data::impl::ArrayImpl* imp = reinterpret_cast<mArray*>(&arr)->get_ptr();
         struct impl_header_row_major* m = static_cast<struct impl_header_row_major*>(static_cast<void*>(imp));

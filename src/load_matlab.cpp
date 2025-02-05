@@ -55,7 +55,11 @@ double _loadlibraries(std::string matlabroot) {
         _LIBMEX = _loadlib(matlabroot + "/bin/", "libmex");
     }
     char *end;
+#ifdef _WIN32
+    return std::strtod(mlver.replace(mlver.find("_"), 1, ".").c_str(), &end);
+#else
     return std::strtod(mlver.c_str(), &end);
+#endif
 }
 void _checklibs() {
     if (!_LIBDATAARRAY || !_LIBCPPSHARED || !_LIBMEX) {

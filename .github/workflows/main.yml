@@ -33,17 +33,17 @@ env:
       },
       "os_map": {
         "ubuntu-24.04": {
-          "mlver": "R2021a",
+          "mlver": "R2024b",
           "tag": "manylinux_x86_64",
           "mlprefix": "/host/"
         },
         "windows-2022": {
-          "mlver": "R2023a",
+          "mlver": "R2024b",
           "tag": "win_amd64",
           "mlprefix": ""
         },
         "macos-13": {
-          "mlver": "R2024a",
+          "mlver": "R2024b",
           "tag": "macosx_x86_64",
           "mlprefix": ""
         },
@@ -138,9 +138,9 @@ jobs:
         run: |
           eval "$($MAMBA_EXE shell activate gistsenv)"
           python release.py --notest --github --token=${{ secrets.GH_GIST_TOKEN }}
-      #- name: Setup tmate
-      #  if: ${{ failure() }}
-      #  uses: mxschmitt/action-tmate@v3
+      - name: Setup tmate
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}_artifacts.zip

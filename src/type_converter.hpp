@@ -68,6 +68,27 @@ namespace libpymcr {
         void *unknown3;          // Seems to be zero
     };
 
+    struct mxArray_header_2024b { // 96 bytes long?
+        std::int32_t *refcount;  // Pointer to the number of shared copies
+        void *unknown1;          // Seems to be zero
+        std::int64_t ClassID;    // https://mathworks.com/help/matlab/apiref/mxclassid.html
+        std::int64_t unity;      // Always seems to be 1?
+        std::int64_t flags;      // ???
+        union {
+            std::int64_t M;      // Row size for 2D matrices, or
+            std::int64_t *dims;  // Pointer to dims array for nD > 2 arrays
+        } Mdims;
+        union {
+            std::int64_t N;      // Column size for 2D matrices, or
+            std::int64_t ndims;  // Number of dimemsions for nD > 2 arrays
+        } Nndim;
+        void *unknown_addr1;     // Something related to structs
+        void *unknown2;          // Seems to be zero
+        void *pr;                // Pointer to the data
+        void *unknown_addr2;     // Something related to structs or sparse
+        void *unknown_addr3;     // Something related to structs or sparse
+    };
+
     struct impl_header_col_major {
         void *ad1;               // Virtual pointer table?
         std::int64_t *unity;     // Seems to be always 1
@@ -82,8 +103,8 @@ namespace libpymcr {
         void *unknown4;
 #endif
         void *mxArray;           // Pointer to mxArray in the *data_ptr struct (R2020a-R2023a)
-        void *ptr1;              // Unknown function pointer in >R2023b (deleter?)
-        void *ptr2;              // Unknown function pointer in >R2023b
+        void *mxArray3;          // Unknown function pointer in >R2023b (deleter?) / mxArray ptr in R2024b
+        void *ptr1;              // Unknown function pointer in >R2023b
         void *mxArray2;          // Pointer to mxArray in >R2023b
     };
  
