@@ -73,7 +73,7 @@ namespace libpymcr {
         std::int64_t *unity;     // Seems to be always 1
         void *data_ptr;          // Pointer to another struct that points to a mxArray
         std::int64_t *flags;     // Some kind of flags?
-        std::int64_t *dims;      // Pointer to dimensions array
+        std::int64_t *dims;      // Pointer to dimensions array (data_ptr in >R2023b MacOS)
 #if defined _WIN32
         // For some reason windows (or VS?) has a 32-byte spacer between these fields
         void *unknown1;
