@@ -23,7 +23,11 @@ struct mxArray_header_2020a* _get_mxArray(Array arr, double mlver) {
     struct impl_header_col_major* m0 = reinterpret_cast<struct impl_header_col_major*>(imp);
     struct impl_header_col_major* m1 = reinterpret_cast<struct impl_header_col_major*>(m0->data_ptr);
 #if defined __APPLE__
-    return reinterpret_cast<struct mxArray_header_2020a*>(m1->data_ptr);
+    if (mlver > 10) {  // R2023b or newer
+        return reinterpret_cast<struct mxArray_header_2020a*>(m1->dims);
+    } else {
+        return reinterpret_cast<struct mxArray_header_2020a*>(m1->data_ptr);
+    }
 #else
     if (mlver > 10) {  // R2023b or newer
         return reinterpret_cast<struct mxArray_header_2020a*>(m1->mxArray2);
