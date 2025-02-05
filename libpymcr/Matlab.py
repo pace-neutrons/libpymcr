@@ -103,6 +103,18 @@ class Matlab(object):
         """
         return NamespaceWrapper(self._interface, name)
 
+    def __matmul__(self, rhs):
+        """
+        Override the "@" operator to return a Matlab function handle like the Matlab syntax
+        """
+        if hasattr(rhs, 'proxy') and hasattr(rhs, 'method') and hasattr(rhs.proxy, 'handle') and hasattr(rhs.proxy, '_class'):
+            basename = f'{rhs.proxy._class}{id(rhs.proxy)}'
+            self._interface.call('assignin', 'base', basename, rhs.proxy.handle, nargout=0)
+            new_handle = self._interface.call('evalin', 'base', f'@{basename}.{rhs.method}', nargout=1)
+            return wrap(new_handle, self._interface)
+        else:
+            raise RuntimeError('Object is not a Matlab method')
+
     def type(self, obj):
         if hasattr(obj, 'handle'):
             return self._interface.call('class', obj.handle, nargout=1)

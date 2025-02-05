@@ -8,7 +8,7 @@ set(CMAKE_MACOSX_RPATH TRUE)
 set(CMAKE_CXX_STANDARD 11)
 set(CXX_STANDARD_REQUIRED 11)
 
-set(MINIMUM_PYBIND11_VERSION 2.10.1)
+set(MINIMUM_PYBIND11_VERSION 2.12.0)
 set(FETCH_PYBIND11_REPO https://github.com/pybind/pybind11)
 
 if (PYTHON_EXECUTABLE)
@@ -20,7 +20,7 @@ find_package(Python3 COMPONENTS Interpreter Development)
 # Use system pybind11 if it exists
 find_package(pybind11 ${MINIMUM_PYBIND11_VERSION} QUIET)
 if (pybind11_FOUND)
-  message(STATUS "pybind11 >= ${MINIMUM_PYBIND11_VERSION} found")
+  message(STATUS "pybind11 ${pybind11_VERSION} found")
 else()
   include(FetchContent)
   if (EXISTS "${FETCHCONTENT_BASE_DIR}/pybind11-src")

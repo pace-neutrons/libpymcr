@@ -2,11 +2,9 @@
 #define TYPECONVERTER_H
 
 #include "load_matlab.hpp"
+#include "matlab_data_array.hpp"
 #include <cstddef>
 using ssize_t = std::ptrdiff_t;
-
-#include <MatlabDataArray/TypedArray.hpp>
-#include <MatlabDataArray/ArrayFactory.hpp>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -83,7 +81,10 @@ namespace libpymcr {
         void *unknown3;
         void *unknown4;
 #endif
-        void *mxArray;           // Pointer to mxArray in the *data_ptr struct
+        void *mxArray;           // Pointer to mxArray in the *data_ptr struct (R2020a-R2023a)
+        void *ptr1;              // Unknown function pointer in >R2023b (deleter?)
+        void *ptr2;              // Unknown function pointer in >R2023b
+        void *mxArray2;          // Pointer to mxArray in >R2023b
     };
  
     // Header for a (new-style) row-major array
@@ -143,6 +144,7 @@ namespace libpymcr {
         std::vector< std::pair<matlab::data::Array, PyObject*> > m_py_cache;
         PyTypeObject* m_py_matlab_wrapper_t;
         bool m_mex_flag;
+        double m_MLVERSION;
         // Methods to convert from Matlab to Python
         PyObject* is_wrapped_np_data(void* addr);
         template <typename T> PyObject* matlab_to_python_t (matlab::data::Array arr, dt<T>);
@@ -155,18 +157,18 @@ namespace libpymcr {
         // Methods to convert from Python to Matlab
         template <typename T> Array raw_to_matlab(char *raw, size_t sz, std::vector<size_t> dims,
                                                   ssize_t *strides, int f_or_c_continuous,
-                                                  matlab::data::ArrayFactory &factory, PyObject* obj);
+                                                  matlab::data::mArrayFactory &factory, PyObject* obj);
         bool release_buffer(matlab::data::Array arr);
-        matlab::data::Array python_array_to_matlab(PyObject *result, matlab::data::ArrayFactory &factory);
-        template <typename T> Array fill_vec_from_pyobj(std::vector<PyObject*> &objs, matlab::data::ArrayFactory &factory);
-        CharArray python_string_to_matlab(PyObject *result, matlab::data::ArrayFactory &factory);
-        Array listtuple_to_cell(PyObject *result, matlab::data::ArrayFactory &factory);
-        StructArray python_dict_to_matlab(PyObject *result, matlab::data::ArrayFactory &factory);
-        matlab::data::Array wrap_python_function(PyObject *input, matlab::data::ArrayFactory &factory);
-        matlab::data::Array python_to_matlab_single(PyObject *input, matlab::data::ArrayFactory &factory);
+        matlab::data::Array python_array_to_matlab(PyObject *result, matlab::data::mArrayFactory &factory);
+        template <typename T> Array fill_vec_from_pyobj(std::vector<PyObject*> &objs, matlab::data::mArrayFactory &factory);
+        CharArray python_string_to_matlab(PyObject *result, matlab::data::mArrayFactory &factory);
+        Array listtuple_to_cell(PyObject *result, matlab::data::mArrayFactory &factory);
+        StructArray python_dict_to_matlab(PyObject *result, matlab::data::mArrayFactory &factory);
+        matlab::data::Array wrap_python_function(PyObject *input, matlab::data::mArrayFactory &factory);
+        matlab::data::Array python_to_matlab_single(PyObject *input, matlab::data::mArrayFactory &factory);
     public:
         void clear_py_cache();
-        pymat_converter(NumpyConversion np_behaviour=NumpyConversion::COPY);
+        pymat_converter(NumpyConversion np_behaviour=NumpyConversion::COPY, double matlab_version=9.8);
         ~pymat_converter();
         matlab::data::Array to_matlab(PyObject *input, bool mex_flag=false);
         PyObject* to_python(matlab::data::Array input);

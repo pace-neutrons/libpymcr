@@ -29,21 +29,30 @@ namespace libpymcr {
     template <class T> T matlab_env::evalloop(matlab::cpplib::FutureResult<T> resAsync) {
         std::chrono::duration<int, std::milli> period(1);
         std::future_status status = resAsync.wait_for(std::chrono::duration<int, std::milli>(1));
+        bool error_already_set = false;
         while (status != std::future_status::ready) {
             status = resAsync.wait_for(period);
             // Prints outputs and errors
+            py::gil_scoped_acquire gil_acquire;
+            // Check if there is an interrupt on the Python side (needs GIL)
+            if (!error_already_set && PyErr_CheckSignals() != 0) {
+                resAsync.cancel();
+                error_already_set = true;
+            }
             if(_m_output.get()->in_avail() > 0) {
-                py::gil_scoped_acquire gil_acquire;
-                py::print(_m_output.get()->str(), py::arg("flush")=true);
-                py::gil_scoped_release gil_release;
+                py::print(_m_output.get()->str(), py::arg("flush")=true, py::arg("end")="");
                 _m_output.get()->str(std::basic_string<char16_t>());
             }
+            py::gil_scoped_release gil_release;
         }
         return resAsync.get();
     }
 
     py::object matlab_env::feval(const std::u16string &funcname, py::args args, py::kwargs& kwargs) {
         // Calls Matlab function
+        if (_in_evaluation) {
+            throw std::runtime_error("Cannot call Matlab from a nested Python function.");
+        }
         const size_t nlhs = 0;
         // Clears the streams
         _m_output.get()->str(std::basic_string<char16_t>());
@@ -54,15 +63,23 @@ namespace libpymcr {
         size_t nargout = _parse_inputs(m_args, args, kwargs);
         // Release the GIL to call Matlab (PyBind automatically acquires GIL in all defined functions)
         py::gil_scoped_release gil_release;
-        if (nargout == 1) {
-            if (m_args.size() == 1) {
-                outputs.push_back(evalloop(_lib->fevalAsync(funcname, m_args[0], _m_output_buf, _m_error_buf)));
+        _in_evaluation = true;
+        try {
+            if (nargout == 1) {
+                if (m_args.size() == 1) {
+                    outputs.push_back(evalloop(_lib->fevalAsync(funcname, m_args[0], _m_output_buf, _m_error_buf)));
+                } else {
+                    outputs.push_back(evalloop(_lib->fevalAsync(funcname, m_args, _m_output_buf, _m_error_buf)));
+                }
             } else {
-                outputs.push_back(evalloop(_lib->fevalAsync(funcname, m_args, _m_output_buf, _m_error_buf)));
+                outputs = evalloop(_lib->fevalAsync(funcname, nargout, m_args, _m_output_buf, _m_error_buf));
             }
-        } else {
-            outputs = evalloop(_lib->fevalAsync(funcname, nargout, m_args, _m_output_buf, _m_error_buf));
         }
+        catch(...) {
+            _in_evaluation = false;
+            throw;
+        }
+        _in_evaluation = false;
         // Re-aquire the GIL
         py::gil_scoped_acquire gil_acquire;
         // Prints outputs and errors
@@ -101,12 +118,13 @@ namespace libpymcr {
 
     // Constructor
     matlab_env::matlab_env(const std::u16string ctfname, std::string matlabroot, std::vector<std::u16string> options) {
-        _loadlibraries(matlabroot);
+        _MLVER = _loadlibraries(matlabroot);
         auto mode = matlab::cpplib::MATLABApplicationMode::IN_PROCESS;
         // Specify MATLAB startup options
         _app = matlab::cpplib::initMATLABApplication(mode, options);
         _lib = matlab::cpplib::initMATLABLibrary(_app, ctfname);
-        _converter = pymat_converter(pymat_converter::NumpyConversion::COPY);
+        _converter = pymat_converter(pymat_converter::NumpyConversion::WRAP, _MLVER);
+        _in_evaluation = false;
     }
 
 

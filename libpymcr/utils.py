@@ -3,6 +3,7 @@ import sys
 import glob
 import platform
 import zipfile
+import lzma
 import ast
 import inspect
 import dis
@@ -66,7 +67,7 @@ def get_nret_from_dis(frame):
         return 1  # Probably in a multi-line call
 
 
-def get_nlhs(name):
+def get_nlhs(name=None):
     # Tries to get the number of return values for a named (Matlab) function
     # Assumes that it's called as a method of the `m` or Matlab() object
 
@@ -313,3 +314,51 @@ def checkPath(runtime_version, mlPath=None, error_if_not_found=True, suppress_ou
         #    print('Found: ' + os.environ.get(obj.path_var))
 
     return mlPath
+
+
+def _tobestripped(info):
+    if 'mex' in info.filename and 'auth' not in info.filename:
+        return True
+    elif info.filename.endswith('mcstas'):
+        return True
+    elif info.filename.endswith('mat'):
+        return True
+    elif info.filename.endswith('exe'):
+        return True
+    elif info.filename.endswith('libmpi.so.0'):
+        return True
+    return False
+
+
+def stripmex(version_string, ctfdir='CTF', writemex=False):
+    # Strips out mex and large files from a zipped CTF.
+    ctffile = os.path.join(ctfdir, f'pace_{version_string[1:]}.ctf')
+    if not os.path.exists(ctffile):
+        raise RuntimeError(f'CTF "{ctffile}" not created.')
+    with zipfile.ZipFile(ctffile, 'r') as ctf_in:
+        if writemex:
+            with lzma.open(os.path.join(ctfdir, f'mexes.xz'), 'w') as xzf:
+                with zipfile.ZipFile(xzf, 'w', zipfile.ZIP_STORED) as ctf_out:
+                    for info in [v for v in ctf_in.infolist() if _tobestripped(v)]:
+                        ctf_out.writestr(info, ctf_in.read(info))
+        with lzma.open(os.path.join(ctfdir, f'nomex_{version_string[1:]}.xz'), 'w') as xzf:
+            with zipfile.ZipFile(xzf, 'w', zipfile.ZIP_STORED) as ctf_out:
+                for info in [v for v in ctf_in.infolist() if not _tobestripped(v)]:
+                    ctf_out.writestr(info, ctf_in.read(info))
+
+
+def recombinemex(version_string, ctfdir):
+    mexes = os.path.join(ctfdir, 'mexes.xz')
+    ctfstub = os.path.join(ctfdir, f'nomex_{version_string[1:]}.xz')
+    if not os.path.exists(mexes) or not os.path.exists(ctfstub):
+        raise RuntimeError(f'Mexes archive "{mexes}" or ctf stub "{ctfstub}" does not exist.')
+    with zipfile.ZipFile(os.path.join(ctfdir, f'pace_{version_string[1:]}.ctf'), 'w', zipfile.ZIP_DEFLATED) as ctf_out:
+        with lzma.open(ctfstub, 'r') as xz_stub:
+            with zipfile.ZipFile(xz_stub, 'r') as zip_in:
+                for info in [v for v in zip_in.infolist()]:
+                    ctf_out.writestr(info, zip_in.read(info))
+        with lzma.open(mexes, 'r') as xz_mex:
+            with zipfile.ZipFile(xz_mex, 'r') as zip_in:
+                for info in [v for v in zip_in.infolist()]:
+                    ctf_out.writestr(info, zip_in.read(info))
+
