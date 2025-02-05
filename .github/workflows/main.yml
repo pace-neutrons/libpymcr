@@ -16,7 +16,6 @@ on:
 
 concurrency :
   group: ${{ github.workflow }}-${{ github.ref == 'refs/head/main' && github.run_number || github.ref }}
-  cancel-in-progress: true
 
 defaults:
   run:
@@ -34,12 +33,12 @@ env:
       },
       "os_map": {
         "ubuntu-24.04": {
-          "mlver": "R2024a",
+          "mlver": "R2021a",
           "tag": "manylinux_x86_64",
           "mlprefix": "/host/"
         },
         "windows-2022": {
-          "mlver": "R2024a",
+          "mlver": "R2023a",
           "tag": "win_amd64",
           "mlprefix": ""
         },
@@ -49,14 +48,12 @@ env:
           "mlprefix": ""
         },
         "macos-14": {
-          "mlver": "R2024a",
+          "mlver": "R2024b",
           "tag": "macosx_arm64",
           "mlprefix": ""
         }
       }
     }
-  # Must match what is stored in the gists
-  MCRVER: R2024a
 
 jobs:
   build_and_test:
@@ -99,7 +96,7 @@ jobs:
       - uses: mamba-org/setup-micromamba@v1
         with:
           cache-downloads: true
-      - name: Download gists 
+      - name: Download gists
         run: |
           $MAMBA_EXE create -n gistsenv -c conda-forge python=3.9 numpy requests
           eval "$($MAMBA_EXE shell activate gistsenv)"
@@ -131,9 +128,7 @@ jobs:
             fi
             python -m pip install wheelhouse/*${pytag}*
             cd test
-            # Sometimes the test results in a segfault on exit
-            python run_test.py || true
-            test -f success
+            python run_test.py
             cd ..
           done
       - name: Upload release wheels

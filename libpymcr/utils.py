@@ -25,7 +25,8 @@ OPERATOR_NAMES = {
 }
 
 MLVERDIC = {f'R{rv[0]}{rv[1]}':f'9.{vr}' for rv, vr in zip([[yr, ab] for yr in range(2017,2023) for ab in ['a', 'b']], range(2, 14))}
-MLVERDIC.update({'R2023a':'9.14', 'R2023b':'23.2', 'R2024a':'24.1'})
+MLVERDIC.update({'R2023a':'9.14', 'R2023b':'23.2'})
+MLVERDIC.update({f'R20{yr}{ab}':f'{yr}.{1 if ab=="a" else 2}' for yr in range(24,26) for ab in ['a','b']})
 
 MLEXEFOUND = {}
 

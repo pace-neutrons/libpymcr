@@ -1,7 +1,8 @@
 import argparse, requests, json, os, base64
 
-FILES = ['test_R2024a.ctf']
-GIST_ID = ['2727bd8d670e42cd27e12d8c51582868']
+FILES = ['test_R2021a.ctf', 'test_R2023a.ctf', 'test_R2024a.ctf', 'test_R2024b.ctf']
+GIST_ID = ['b595469518fbec7d9e293cf98bc123d6', 'fda80b61074de6fb03530eb7ddaa82de',
+           '2727bd8d670e42cd27e12d8c51582868', 'c7ca72b1c80a501edef1b6434a4983aa']
 
 def main():
     parser = argparse.ArgumentParser()

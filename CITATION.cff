@@ -13,7 +13,10 @@ authors:
     orcid: "https://orcid.org/0000-0001-7127-5763"
   - family-names: "Tucker"
     given-names: "Gregory S."
-    orcid: https://orcid.org/0000-0002-2787-8054
+    orcid: "https://orcid.org/0000-0002-2787-8054"
+  - family-names: "Seth"
+    given-names: "Mridul"
+    orcid: "https://orcid.org/0000-0002-0969-0437"
 title: "libpymcr"
 version: "0.2.0"
 date-released: "2024-04-26"

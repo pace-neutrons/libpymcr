@@ -17,6 +17,15 @@ Also, note that Matlab syntax like `fun = @(x) x+1` is not valid in Python, and 
 * Nested calls to Matlab in Python functions called from Matlab now results in a `RuntimeError` rather than just hanging.
 * Pressing `Ctrl+C` in Python will now interrupt Matlab execution (but will not be instantaneous)
 * Matlab outputs now don't have extraneous newlines and look more like in Matlab.
+* Update code to handle numpy v2
+* Update code to handle new Matlab buffer syntax change in R2024b
+
+## For Developers
+
+A pair of new utility functions, `stripmex` and `recombinemex` to remove non-encoded files from the `ctf` archive was added.
+This is needed because different Matlab releases use different encoding keys so a `ctf` is needed for each release.
+Bundling all these into a single wheel can be wasteful as large files (e.g. `mex`) are not encoded.
+So, they can be removed from the `ctf`, bundled separately and recombined in the user's installation later.
 
 
 # [v0.1.8](https://github.com/pace-neutrons/libpymcr/compare/v0.1.7...v0.1.8)

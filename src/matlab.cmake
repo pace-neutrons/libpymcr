@@ -81,6 +81,8 @@ function(mcr_add_mex)
       check_c_compiler_flag(-pthread HAS_MINUS_PTHREAD)
     endif()
     if (APPLE)
+      # Check for M1
+      #if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES ??)
       set(Matlab_MEX_EXTENSION mexmaci64)
       set(Matlab_ARCH maci64)
     else()
