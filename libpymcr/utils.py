@@ -318,11 +318,9 @@ def checkPath(runtime_version, mlPath=None, error_if_not_found=True, suppress_ou
 
 
 def _tobestripped(info):
-    if 'mex' in info.filename and 'auth' not in info.filename:
+    if '.mex' in info.filename and 'auth' not in info.filename:
         return True
     elif info.filename.endswith('mcstas'):
-        return True
-    elif info.filename.endswith('mat'):
         return True
     elif info.filename.endswith('exe'):
         return True
@@ -331,9 +329,9 @@ def _tobestripped(info):
     return False
 
 
-def stripmex(version_string, ctfdir='CTF', writemex=False):
+def stripmex(version_string, ctfdir='CTF', writemex=False, prefix='pace'):
     # Strips out mex and large files from a zipped CTF.
-    ctffile = os.path.join(ctfdir, f'pace_{version_string[1:]}.ctf')
+    ctffile = os.path.join(ctfdir, f'{prefix}_{version_string[1:]}.ctf')
     if not os.path.exists(ctffile):
         raise RuntimeError(f'CTF "{ctffile}" not created.')
     with zipfile.ZipFile(ctffile, 'r') as ctf_in:
@@ -348,12 +346,14 @@ def stripmex(version_string, ctfdir='CTF', writemex=False):
                     ctf_out.writestr(info, ctf_in.read(info))
 
 
-def recombinemex(version_string, ctfdir):
+def recombinemex(version_string, ctfdir, prefix='pace', outfilename=None):
     mexes = os.path.join(ctfdir, 'mexes.xz')
     ctfstub = os.path.join(ctfdir, f'nomex_{version_string[1:]}.xz')
     if not os.path.exists(mexes) or not os.path.exists(ctfstub):
         raise RuntimeError(f'Mexes archive "{mexes}" or ctf stub "{ctfstub}" does not exist.')
-    with zipfile.ZipFile(os.path.join(ctfdir, f'pace_{version_string[1:]}.ctf'), 'w', zipfile.ZIP_DEFLATED) as ctf_out:
+    if outfilename is None:
+        outfilename = os.path.join(ctfdir, f'{prefix}_{version_string[1:]}.ctf')
+    with zipfile.ZipFile(outfilename, 'w', zipfile.ZIP_DEFLATED) as ctf_out:
         with lzma.open(ctfstub, 'r') as xz_stub:
             with zipfile.ZipFile(xz_stub, 'r') as zip_in:
                 for info in [v for v in zip_in.infolist()]:
@@ -361,5 +361,7 @@ def recombinemex(version_string, ctfdir):
         with lzma.open(mexes, 'r') as xz_mex:
             with zipfile.ZipFile(xz_mex, 'r') as zip_in:
                 for info in [v for v in zip_in.infolist()]:
+                    if info.filename.startswith(f'fsroot/{prefix}'):
+                        info.filename = f'fsroot/{prefix}_{version_string[1:]}/' + '/'.join(info.filename.split('/')[2:])
                     ctf_out.writestr(info, zip_in.read(info))
 
