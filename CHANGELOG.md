@@ -1,4 +1,4 @@
-# [v0.2.0](https://github.com/pace-neutrons/libpymcr/compare/v0.1.8...v0.2.0)
+# [v0.2.1](https://github.com/pace-neutrons/libpymcr/compare/v0.1.8...v0.2.1)
 
 ## New Features
 
@@ -19,6 +19,8 @@ Also, note that Matlab syntax like `fun = @(x) x+1` is not valid in Python, and 
 * Matlab outputs now don't have extraneous newlines and look more like in Matlab.
 * Update code to handle numpy v2
 * Update code to handle new Matlab buffer syntax change in R2024b
+* Refactor `call_python` to avoid ABI change between Python 3.11 and 3.12
+* Fix a GIL deadlock error when using `call_python` with new interrupt (`Ctrl+C`) mechanism.
 
 ## For Developers
 
