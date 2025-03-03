@@ -547,15 +547,76 @@ Array pymat_converter::listtuple_to_cell(PyObject *result, matlab::data::mArrayF
     }
 }
 
+py::tuple convMat2np(std::vector<matlab::data::Array>::iterator inputs_begin, py::handle owner, size_t narg, libpymcr::pymat_converter *converter) {
+    // Note that this function must be called when we have the GIL
+    py::tuple retval(narg - 1);
+    for (size_t idx = 2; idx <= narg; idx++) {
+        retval[idx - 2] = converter->to_python(*(inputs_begin + idx));
+    }
+    return retval;
+}
+
+void conv_fn(const char *key, uintptr_t conv_addr, std::vector<matlab::data::Array>::iterator inputs_begin, size_t inputs_sz, matlab::data::Array *rv) {
+    py::gil_scoped_acquire gil_acquire;  // GIL{
+    libpymcr::pymat_converter* converter = reinterpret_cast<libpymcr::pymat_converter*>(conv_addr);
+    py::module pyHoraceFn = py::module::import("libpymcr");
+    py::dict fnDict = pyHoraceFn.attr("_globalFunctionDict");
+    PyObject *fn_ptr = PyDict_GetItemString(fnDict.ptr(), key);
+    if (PyCallable_Check(fn_ptr)) {
+        PyObject *result;
+        size_t endIdx = inputs_sz - 1;
+        try {
+            try {
+                const matlab::data::StructArray in_struct(*(inputs_begin + endIdx));
+                const matlab::data::Array v = in_struct[0][matlab::data::MATLABFieldIdentifier("pyHorace_pyKwArgs")];
+                PyObject *kwargs = converter->to_python(*(inputs_begin + endIdx));
+                PyDict_DelItemString(kwargs, "pyHorace_pyKwArgs");
+                py::tuple arr_in = convMat2np(inputs_begin, fn_ptr, inputs_sz-2, converter);
+                result = PyObject_Call(fn_ptr, arr_in.ptr(), kwargs);
+            } catch (...) {
+                py::tuple arr_in = convMat2np(inputs_begin, fn_ptr, inputs_sz-1, converter);
+                result = PyObject_CallObject(fn_ptr, arr_in.ptr());
+            }
+        } catch ( const std::exception &e ) {
+            throw std::runtime_error(e.what());
+        }
+        if (result == NULL) {
+            PyErr_Print();
+            py::gil_scoped_release gil_release;
+            throw std::runtime_error("Python function threw an error.");
+        }
+        else {
+            try {
+                *rv = converter->to_matlab(result, Py_REFCNT(result)==1);
+            } catch ( const std::exception& e ) {
+                Py_DECREF(result);
+                py::gil_scoped_release gil_release;
+                throw std::runtime_error(e.what());
+            } catch (...) {
+                Py_DECREF(result);
+                py::gil_scoped_release gil_release;
+                throw std::runtime_error("Error in converting outputs to Matlab");
+            }
+            Py_DECREF(result);
+        }
+    } else {
+        py::gil_scoped_release gil_release;
+        throw std::runtime_error("Python function is not callable.");
+    }
+    py::gil_scoped_release gil_release;  // GIL}
+}
+
 matlab::data::Array pymat_converter::wrap_python_function(PyObject *input, matlab::data::mArrayFactory &factory) {
     // Wraps a Python function so it can be called using a mex function
     matlab::data::Array rv;
     std::string addrstr = std::to_string(reinterpret_cast<uintptr_t>(input));
-    rv = factory.createStructArray({1, 1}, std::vector<std::string>({"libpymcr_func_ptr"}));
+    rv = factory.createStructArray({1, 1}, std::vector<std::string>({"libpymcr_func_ptr", "mex_func_ptr", "conv_ptr"}));
     py::module pyHoraceFn = py::module::import("libpymcr");
     py::dict fnDict = pyHoraceFn.attr("_globalFunctionDict");
     PyDict_SetItemString(fnDict.ptr(), addrstr.c_str(), input);
     rv[0][std::string("libpymcr_func_ptr")] = factory.createCharArray(addrstr.c_str());
+    rv[0][std::string("mex_func_ptr")] = factory.createScalar<uint64_t>(reinterpret_cast<uintptr_t>(&conv_fn));
+    rv[0][std::string("conv_ptr")] = factory.createScalar<uint64_t>(reinterpret_cast<uintptr_t>(this));
     return rv;
 }
 

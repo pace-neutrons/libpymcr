@@ -33,7 +33,7 @@ namespace libpymcr {
         while (status != std::future_status::ready) {
             status = resAsync.wait_for(period);
             // Prints outputs and errors
-#if PY_VERSION_HEX >= 0x030b00f0  // PyThreadState_GetUnchecked introduced in Python-3.13
+#if PY_VERSION_HEX >= 0x030d00f0  // PyThreadState_GetUnchecked introduced in Python-3.13
             PyThreadState* threadState = PyThreadState_GetUnchecked();
 #else
             PyThreadState* threadState = _PyThreadState_UncheckedGet();
