@@ -1,6 +1,5 @@
 /* Own copy of MatlabDataArray.hpp with only the functionality we need.
  * This is to enable overrides of certain definitions.
- * Matlab on github-hosted action runners for MacOS X and Windows.
  */
 
 #include <MatlabDataArray/ArrayFactory.hpp>

@@ -18,7 +18,7 @@ authors:
     given-names: "Mridul"
     orcid: "https://orcid.org/0000-0002-0969-0437"
 title: "libpymcr"
-version: "0.2.0"
+version: "0.2.1"
 date-released: "2024-04-26"
 license: "GPL-3.0-only"
 repository: "https://github.com/pace-neutrons/libpymcr"

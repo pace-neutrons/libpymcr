@@ -33,17 +33,24 @@ namespace libpymcr {
         while (status != std::future_status::ready) {
             status = resAsync.wait_for(period);
             // Prints outputs and errors
-            py::gil_scoped_acquire gil_acquire;
-            // Check if there is an interrupt on the Python side (needs GIL)
-            if (!error_already_set && PyErr_CheckSignals() != 0) {
-                resAsync.cancel();
-                error_already_set = true;
+#if PY_VERSION_HEX >= 0x030d00f0  // PyThreadState_GetUnchecked introduced in Python-3.13
+            PyThreadState* threadState = PyThreadState_GetUnchecked();
+#else
+            PyThreadState* threadState = _PyThreadState_UncheckedGet();
+#endif
+            if (threadState == NULL) {
+                py::gil_scoped_acquire gil_acquire;
+                // Check if there is an interrupt on the Python side (needs GIL)
+                if (!error_already_set && PyErr_CheckSignals() != 0) {
+                    resAsync.cancel();
+                    error_already_set = true;
+                }
+                if(_m_output.get()->in_avail() > 0) {
+                    py::print(_m_output.get()->str(), py::arg("flush")=true, py::arg("end")="");
+                    _m_output.get()->str(std::basic_string<char16_t>());
+                }
+                py::gil_scoped_release gil_release;
             }
-            if(_m_output.get()->in_avail() > 0) {
-                py::print(_m_output.get()->str(), py::arg("flush")=true, py::arg("end")="");
-                _m_output.get()->str(std::basic_string<char16_t>());
-            }
-            py::gil_scoped_release gil_release;
         }
         return resAsync.get();
     }
@@ -83,8 +90,8 @@ namespace libpymcr {
         // Re-aquire the GIL
         py::gil_scoped_acquire gil_acquire;
         // Prints outputs and errors
-        //if(_m_output.get()->in_avail() > 0) {
-        //    py::print(_m_output.get()->str(), py::arg("flush")=true); }
+        if(_m_output.get()->in_avail() > 0) {
+            py::print(_m_output.get()->str(), py::arg("flush")=true); }
         if(_m_error.get()->in_avail() > 0) {
             py::print(_m_error.get()->str(), py::arg("file")=py::module::import("sys").attr("stderr"), py::arg("flush")=true); }
         // Converts outputs to Python types
