@@ -14,6 +14,7 @@ jobs:
     - name: Download wheels
       run: |
         python3 -m pip install twine requests numpy
+        python3 -m pip install -U packaging # https://github.com/pypa/twine/issues/1216
         python3 release.py --pypi --token=${{ secrets.GH_GIST_TOKEN }}
     - name: Publish wheels to PyPI
       env:
